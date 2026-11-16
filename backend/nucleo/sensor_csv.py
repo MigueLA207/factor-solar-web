@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas, transformacion
-from .formato import miles, pct
+from .formato import dec, miles, pct
 
 COBERTURA_MINIMA_PCT = 5.0       # por debajo: el factor no tendría sentido
 COBERTURA_AVISO_PCT = 80.0
@@ -70,6 +70,45 @@ def a_fecha_utc(serie):
     con_zona = int((valida & texto.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True)).sum())
     fechas = pd.to_datetime(texto.where(valida), errors="coerce", utc=True, format="ISO8601")
     return fechas.dt.tz_localize(None), con_zona, con_barras
+
+
+# Reglas de contenido: el archivo se rechaza si los valores no pueden venir de un piranómetro en W/m².
+MIN_VALORES_NUMERICOS_PCT = 50.0   # al menos la mitad de irr_sitio debe ser un número
+MAX_IMPOSIBLES_PCT = 20.0          # como máximo 1 de cada 5 valores fuera de -10 a 1500 W/m²
+MAX_MINIMO_DIA_WM2 = 50.0          # al sol, un piranómetro supera de lejos 50 W/m² en algún momento
+T_MODULO_RANGO = (-40.0, 100.0)    # temperatura posible de la parte trasera de un panel
+
+
+def revisar_contenido(datos, errores, advertencias, reporte):
+    """Bloquea archivos cuyos valores no son de irradiancia en W/m²; avisa si t_modulo no sirve."""
+    irr = datos["irr_sitio"]
+    total = len(irr)
+    numericos = int(irr.notna().sum())
+    if 100 * numericos / total < MIN_VALORES_NUMERICOS_PCT:
+        errores.append(f"Solo {pct(100 * numericos / total)} de los valores de irr_sitio son números; "
+                       f"se necesita al menos el {MIN_VALORES_NUMERICOS_PCT:.0f} %.")
+        raise ErrorCSV(errores[0], reporte)
+    imposibles = int(((irr < -10) | (irr > reglas.IRR_MAX)).sum())
+    if 100 * imposibles / numericos > MAX_IMPOSIBLES_PCT:
+        errores.append(f"{pct(100 * imposibles / numericos)} de los valores de irr_sitio están fuera de -10 a "
+                       f"{miles(reglas.IRR_MAX)} W/m², que es lo físicamente posible. Revise que la columna sea "
+                       "irradiancia en W/m².")
+        raise ErrorCSV(errores[0], reporte)
+    maximo = irr[(irr >= -10) & (irr <= reglas.IRR_MAX)].max()
+    if maximo < MAX_MINIMO_DIA_WM2:
+        errores.append(f"irr_sitio nunca pasa de {dec(maximo, 2)} W/m². Un piranómetro al sol supera varios "
+                       "cientos de W/m² cerca del mediodía: ¿los datos están en kW/m² o en Wh por minuto, o el "
+                       "sensor estuvo tapado?")
+        raise ErrorCSV(errores[0], reporte)
+    temp = datos["t_modulo"]
+    con_temp = int(temp.notna().sum())
+    if con_temp:
+        fuera = int(((temp < T_MODULO_RANGO[0]) | (temp > T_MODULO_RANGO[1])).sum())
+        if 100 * fuera / con_temp > MAX_IMPOSIBLES_PCT:
+            advertencias.append(f"{pct(100 * fuera / con_temp)} de t_modulo está fuera de "
+                                f"{T_MODULO_RANGO[0]:.0f} a {T_MODULO_RANGO[1]:.0f} °C: se ignora la temperatura "
+                                "(no afecta al factor).")
+            datos["t_modulo"] = np.nan
 
 
 def validar_csv(contenido, anio=None):
@@ -171,6 +210,8 @@ def validar_csv(contenido, anio=None):
     if frecuencia == "hora":
         advertencias.append("Datos por hora: se asume que cada hora H es el promedio de (H-1, H] en UTC, "
                             "como Open-Meteo. El chequeo de desfase lo verifica.")
+
+    revisar_contenido(datos, errores, advertencias, reporte)
 
     duplicados = int(datos["ts_utc"].duplicated().sum())
     picos = int((datos["irr_sitio"] > reglas.IRR_MAX).sum())

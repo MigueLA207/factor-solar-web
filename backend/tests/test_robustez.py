@@ -166,7 +166,7 @@ def test_csv_con_fechas_con_barras_se_rechaza(fecha):
 def test_csv_acepta_iso_con_t_y_con_zona():
     horas = pd.date_range("2024-01-01 00:00", "2024-12-31 23:00", freq="h")
     for formato in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%SZ"):
-        tabla = pd.DataFrame({"ts_utc": horas.strftime(formato), "irr_sitio": 1.0})
+        tabla = pd.DataFrame({"ts_utc": horas.strftime(formato), "irr_sitio": 600.0})
         datos, reporte = sensor_csv.validar_csv(tabla.to_csv(index=False).encode())
         assert reporte["valido"] and datos["ts_utc"].iloc[0] == pd.Timestamp("2024-01-01 00:00")
 

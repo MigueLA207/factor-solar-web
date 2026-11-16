@@ -85,6 +85,8 @@ export interface ValidacionCsv {
   hasta?: string
   tiene_temperatura?: boolean
   errores?: string[]
+  advertencias?: string[]
+  /** nombre antiguo; el backend manda "advertencias" */
   avisos?: string[]
   [k: string]: unknown
 }

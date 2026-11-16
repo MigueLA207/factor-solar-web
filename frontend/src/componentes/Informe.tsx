@@ -35,7 +35,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
             Informe del sitio{r.sitio.nombre ? `: ${r.sitio.nombre}` : ''}
           </h2>
           <p className="informe__meta cifra">
-            {coord(r.sitio.lat, 'lat')} · {coord(r.sitio.lon, 'lon')} · año {r.anio} · sensor {r.simulado ? 'simulado' : 'real'}, por {r.frecuencia_sensor}
+            {coord(r.sitio.lat, 'lat')} · {coord(r.sitio.lon, 'lon')} · año {r.anio} · {r.simulado ? 'sensor simulado' : 'datos subidos por el usuario'}, por {r.frecuencia_sensor}
           </p>
           <p className="informe__celdas cifra">
             Celda ERA5 {celda(r.sitio.celda_era5)} <span aria-hidden="true">·</span> punto NASA {celda(r.sitio.celda_nasa)}
@@ -71,6 +71,17 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                 </ol>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {!r.simulado && (
+        <div className="simulado simulado--usuario" role="note" aria-label="Aviso: datos subidos por el usuario">
+          <p className="simulado__sello">Datos del usuario</p>
+          <div className="simulado__texto">
+            <p className="simulado__frase">
+              Los datos del sensor son los del CSV que subiste. La app los limpia y los compara con ERA5 y NASA, pero no puede comprobar que vengan de un sensor real: el factor vale lo que valgan esos datos.
+            </p>
           </div>
         </div>
       )}
@@ -270,7 +281,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
               <dt>Diferencia en energía del año</dt>
               <dd className="cifra">
                 {signo(cc.diferencia_total_pct)}
-                {pct(cc.diferencia_total_pct)}
+                {pct(cc.diferencia_total_pct, 2)}
               </dd>
               <dd className="datos__nota">
                 ERA5 {num(cc.suma_a_kwh_m2)} contra NASA {num(cc.suma_b_kwh_m2)} kWh/m², en {num(cc.n_horas)} horas comunes.

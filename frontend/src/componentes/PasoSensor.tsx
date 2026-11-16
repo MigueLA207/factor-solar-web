@@ -35,7 +35,8 @@ export function PasoSensor(p: Props) {
     if (!archivo) return
     setSubiendo(true)
     try {
-      p.alSubir(await api.subirSensor(archivo, p.contexto))
+      // El año lo decide el archivo (el backend toma el año con más registros); el punto va como referencia.
+      p.alSubir(await api.subirSensor(archivo, { lat: p.contexto.lat, lon: p.contexto.lon }))
     } catch (e) {
       setErrorSubida(e instanceof Error ? e.message : 'No se pudo leer el archivo.')
     } finally {
@@ -129,7 +130,7 @@ function ResumenSubida({ r }: { r: RespuestaSensor }) {
           {x}
         </p>
       ))}
-      {(v?.avisos ?? []).map((x) => (
+      {(v?.advertencias ?? v?.avisos ?? []).map((x) => (
         <p key={x} className="aviso">
           {x}
         </p>

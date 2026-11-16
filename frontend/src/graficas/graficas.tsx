@@ -68,15 +68,22 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         </text>
         <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />
         {sel && indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
-        {datos.map((d, i) => (
-          <g key={d.periodo} className="tallo">
-            <line x1={cx(i)} x2={cx(i)} y1={y(1)} y2={y(d.factor)} />
-            {d.factor_verdadero != null && (
-              <line x1={cx(i) - 9} x2={cx(i) + 9} y1={y(d.factor_verdadero)} y2={y(d.factor_verdadero)} className="tallo__verdadero" />
-            )}
-            <circle cx={cx(i)} cy={y(d.factor)} r={indice === i ? 6 : 4.5} />
-          </g>
-        ))}
+        {datos.map((d, i) => {
+          // El tallo mide "cuánto se pasa ERA5": va de la línea 1,00 al punto del mes y termina en él.
+          const yPunto = y(d.factor)
+          const r = indice === i ? 6 : 4.5
+          const fin = yPunto + (yPunto > y(1) ? -r : r)
+          return (
+            <g key={d.periodo} className="tallo">
+              {Math.abs(yPunto - y(1)) > r && <line x1={cx(i)} x2={cx(i)} y1={y(1)} y2={fin} />}
+              {d.factor_verdadero != null && (
+                // Muesca del factor verdadero a la derecha del tallo, sin cruzarlo ni taparse con el punto.
+                <line x1={cx(i) + 7} x2={cx(i) + 17} y1={y(d.factor_verdadero)} y2={y(d.factor_verdadero)} className="tallo__verdadero" />
+              )}
+              <circle cx={cx(i)} cy={yPunto} r={r} />
+            </g>
+          )
+        })}
         <g className="eje">
           {datos.map((d, i) => (
             <text key={d.periodo} x={cx(i)} y={ALTO - 10} textAnchor="middle">

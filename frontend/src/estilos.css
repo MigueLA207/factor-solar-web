@@ -478,7 +478,6 @@ main,
   right: 0;
   background: var(--papel-claro);
   border: 1px solid var(--tinta);
-  box-shadow: 0 8px 20px rgb(29 36 51 / 0.14);
   max-height: 300px;
   overflow: auto;
 }
@@ -806,10 +805,16 @@ fieldset:disabled .ejemplo {
 .paso[data-estado='en_curso'] .paso__titulo {
   font-weight: 650;
 }
+/* Contraste fijo (7,8:1 sobre el papel): sin fundido de opacidad, que dejaba cuadros con el texto casi invisible. */
 .paso__detalle {
   font-size: 0.8125rem;
   color: var(--tinta-2);
-  animation: aparecer 260ms var(--salida);
+  animation: revelar 260ms var(--salida);
+}
+@keyframes revelar {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -907,6 +912,7 @@ fieldset:disabled .ejemplo {
   font-family: var(--serif);
   font-size: 1.375rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 .hallazgo__numero {
   font-family: var(--serif);
@@ -920,6 +926,7 @@ fieldset:disabled .ejemplo {
 }
 .hallazgo__formula {
   font-size: 1.25rem;
+  line-height: 1.4;
   color: var(--tinta);
 }
 .hallazgo__formula .cifra {
@@ -927,6 +934,7 @@ fieldset:disabled .ejemplo {
 }
 .hallazgo__frase {
   font-size: 1.125rem;
+  line-height: 1.4;
   margin-top: 14px;
   max-width: 34ch;
 }
@@ -1195,7 +1203,6 @@ fieldset:disabled .ejemplo {
   font-variant-numeric: tabular-nums;
   background: var(--papel-claro);
   border: 1px solid var(--tinta);
-  box-shadow: 0 6px 16px rgb(29 36 51 / 0.12);
   pointer-events: none;
 }
 .lectura strong {
@@ -1578,4 +1585,105 @@ dd {
 .segmentos__op input:checked:disabled + span {
   color: var(--papel);
   background: var(--tinta-2);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Honestidad del informe (revisión W4) */
+
+/* Sello SIMULADO dentro del bloque del factor: el número nunca aparece sin él. */
+.hallazgo__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+.hallazgo__sello {
+  display: inline-block;
+  line-height: 1.4;
+  padding: 3px 10px;
+  background: var(--simulado);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9375rem;
+  letter-spacing: 0.14em;
+}
+.hallazgo__alerta {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--simulado);
+  color: #8e1b12;
+  background: var(--simulado-fondo);
+  font-size: 0.9375rem;
+  max-width: 52ch;
+}
+.noinfo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--tinta);
+  background: var(--papel-claro);
+}
+.noinfo__sello {
+  font-weight: 800;
+  font-size: 0.8125rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.noinfo__texto {
+  font-size: 0.875rem;
+  color: var(--tinta-2);
+  max-width: 64ch;
+}
+.evidencia {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--regla);
+}
+.evidencia__titulo {
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.tabla--corta {
+  max-width: 520px;
+}
+.tabla tr[data-elegido='true'] th,
+.tabla tr[data-elegido='true'] td {
+  font-weight: 700;
+}
+.tabla tr[data-elegido='true'] {
+  background: var(--papel-2);
+}
+
+/* Anexo plegable: el título va dentro del resumen; el triángulo se dibuja con bordes. */
+.anexo--plegable > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.anexo--plegable > summary::-webkit-details-marker {
+  display: none;
+}
+.anexo--plegable > summary::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 7px solid var(--tinta);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transition: transform var(--t-rapido);
+}
+.anexo--plegable[open] > summary::before {
+  transform: rotate(90deg);
+}
+.anexo--plegable > summary:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
 }

@@ -1,8 +1,9 @@
+import { useState, type ReactNode } from 'react'
 import type { Celda, Resultado } from '../api/tipos'
 import { Figura } from '../graficas/base'
-import { GraficaDesfase, GraficaDiaTipico, GraficaEnergiaMensual, GraficaFactorMensual } from '../graficas/graficas'
+import { GraficaDesfase, GraficaDiaTipico, GraficaEnergiaMensual, GraficaFactorMensual, horaDeIntervalo } from '../graficas/graficas'
 import { EscalaSimulacion, ReglaCorreccion } from '../graficas/regla'
-import { MESES_LARGOS, coord, leerCorrelacion, num, pct } from '../util/formato'
+import { MESES_LARGOS, SIN_DATO, coord, hay, leerCorrelacion, leerSesgo, num, pct, signo } from '../util/formato'
 import { useAsentar } from '../util/movimiento'
 
 interface Props {
@@ -11,9 +12,73 @@ interface Props {
   esDemo: boolean
 }
 
-const signo = (x: number) => (x > 0 ? '+' : '')
 const celda = (c: Celda) =>
   `${coord(c.lat, 'lat')} · ${coord(c.lon, 'lon')}${c.elevacion_m != null ? ` · ${num(c.elevacion_m)} m` : ''}`
+
+/** Avisos que el hallazgo ya muestra junto al número: no se repiten en la lista. */
+const YA_EN_EL_HALLAZGO = ['Factor no confiable', 'Revise las unidades', 'Año parcial']
+
+/** Anexo plegable: abierto en pantallas anchas y cerrado de entrada en pantallas angostas. */
+function AnexoPlegable({ id, titulo, children }: { id: string; titulo: string; children: ReactNode }) {
+  const [abierto] = useState(() => !(typeof window !== 'undefined' && window.matchMedia('(max-width: 560px)').matches))
+  return (
+    <details className="anexo anexo--ancho anexo--plegable" open={abierto} aria-labelledby={id}>
+      <summary className="anexo__resumen">
+        <h3 id={id} className="bloque__titulo">
+          {titulo}
+        </h3>
+      </summary>
+      {children}
+    </details>
+  )
+}
+
+/** Correlación ERA5–NASA con cada corrimiento candidato, ANTES de elegir: la evidencia del ajuste de NASA. */
+function EvidenciaNasa({ r }: { r: Resultado }) {
+  const v = r.desfase.verificacion_desfase_nasa
+  if (!v) return null
+  const filas = Object.entries(v.correlacion_por_candidato)
+    .map(([k, c]) => ({ desfase: Number(k), c }))
+    .sort((a, b) => a.desfase - b.desfase)
+  return (
+    <div className="evidencia" aria-labelledby="t-evidencia-nasa">
+      <h4 id="t-evidencia-nasa" className="evidencia__titulo">
+        Hora de NASA: lo que se comparó antes de elegir su corrimiento
+      </h4>
+      <div className="tabla-envoltura">
+        <table className="tabla tabla--corta">
+          <thead>
+            <tr>
+              <th scope="col">Corrimiento de NASA a UTC</th>
+              <th scope="col" className="num">
+                Correlación con ERA5
+              </th>
+              <th scope="col">Papel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.desfase} data-elegido={f.desfase === v.elegido_h}>
+                <th scope="row" className="cifra">
+                  {signo(f.desfase)}
+                  {f.desfase} h
+                </th>
+                <td className="cifra num">{num(f.c, 4)}</td>
+                <td>
+                  {[f.desfase === v.por_longitud_h ? 'regla de longitud' : null, f.desfase === v.elegido_h ? 'elegido' : null].filter(Boolean).join(' · ') || SIN_DATO}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="nota">
+        La regla de franjas de 15° da <span className="cifra">{signo(v.por_longitud_h)}{v.por_longitud_h} h</span>; se probó ±1 h contra ERA5 y se usó el de mayor correlación ({signo(v.elegido_h)}
+        {v.elegido_h} h{v.coincide_con_regla ? ', igual a la regla' : ', distinto de la regla'}). Como el corrimiento se eligió mirando a ERA5, <strong>la coincidencia de hora entre ERA5 y NASA no es un chequeo independiente</strong>: solo descarta errores de más de 1 h.
+      </p>
+    </div>
+  )
+}
 
 export function Informe({ r, urlDescarga, esDemo }: Props) {
   const e5 = r.factores.era5
@@ -22,10 +87,17 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
   const cc = r.consistencia.era5_vs_nasa
   const nasa = r.factores.nasa.anual
   const paresDesfase = r.desfase.pares['sensor vs ERA5'] ?? Object.values(r.desfase.pares)[0] ?? []
-  const mejorSensor = r.desfase.mejor_desfase_h['sensor vs ERA5'] ?? 0
-  const mejorNasa = r.desfase.mejor_desfase_h['ERA5 vs NASA']
+  const mejorSensor = r.desfase.mejor_desfase_h['sensor vs ERA5'] ?? null
   const conVerdadero = r.simulado && anual.factor_verdadero != null
   const fases = r.fases_bimodal?.era5 ?? null
+  const sim = r.simulado
+  const sesgo = leerSesgo(anual.sesgo_relativo_pct)
+  const sesgoNasa = leerSesgo(nasa.sesgo_relativo_pct)
+  const parcial = r.cobertura ? !r.cobertura.anio_completo : false
+  const periodo = parcial ? 'los meses con datos' : 'el año'
+  const conf = r.confiabilidad
+  const sensorNombre = sim ? 'del sensor simulado' : 'del sensor'
+  const avisos = r.advertencias.filter((a) => !YA_EN_EL_HALLAZGO.some((p) => a.startsWith(p)) || !(conf || r.cobertura))
 
   return (
     <section className="informe" aria-labelledby="titulo-informe">
@@ -35,7 +107,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
             Informe del sitio{r.sitio.nombre ? `: ${r.sitio.nombre}` : ''}
           </h2>
           <p className="informe__meta cifra">
-            {coord(r.sitio.lat, 'lat')} · {coord(r.sitio.lon, 'lon')} · año {r.anio} · {r.simulado ? 'sensor simulado' : 'datos subidos por el usuario'}, por {r.frecuencia_sensor}
+            {coord(r.sitio.lat, 'lat')} · {coord(r.sitio.lon, 'lon')} · año {r.anio} · {sim ? 'sensor simulado' : 'datos subidos por el usuario'}, por {r.frecuencia_sensor}
           </p>
           <p className="informe__celdas cifra">
             Celda ERA5 {celda(r.sitio.celda_era5)} <span aria-hidden="true">·</span> punto NASA {celda(r.sitio.celda_nasa)}
@@ -54,7 +126,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
         </div>
       </header>
 
-      {r.simulado && (
+      {sim && (
         <div className="simulado" role="note" aria-label="Aviso: resultado simulado">
           <p className="simulado__sello">{r.etiqueta_sensor || 'SIMULADO'}</p>
           <div className="simulado__texto">
@@ -75,7 +147,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
         </div>
       )}
 
-      {!r.simulado && (
+      {!sim && (
         <div className="simulado simulado--usuario" role="note" aria-label="Aviso: datos subidos por el usuario">
           <p className="simulado__sello">Datos del usuario</p>
           <div className="simulado__texto">
@@ -86,9 +158,9 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
         </div>
       )}
 
-      {r.advertencias.length > 0 && (
+      {avisos.length > 0 && (
         <ul className="advertencias">
-          {r.advertencias.map((a) => (
+          {avisos.map((a) => (
             <li key={a} className="aviso">
               {a}
             </li>
@@ -98,26 +170,66 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
 
       <div className="hallazgo">
         <div className="hallazgo__factor">
-          <h3 className="hallazgo__titulo">Factor de corrección de ERA5</h3>
+          <div className="hallazgo__cabeza">
+            <h3 className="hallazgo__titulo">
+              {sim ? 'Factor de ERA5 con un sensor simulado' : 'Factor de corrección de ERA5'}
+              {parcial ? ' (parcial)' : ''}
+            </h3>
+            {sim && (
+              <p className="hallazgo__sello" role="note">
+                {r.etiqueta_sensor || 'SIMULADO'}
+              </p>
+            )}
+          </div>
           <p className="hallazgo__numero cifra" aria-label={`Factor ${num(anual.factor, 4)}`}>
             {num(factorVisto, 4)}
           </p>
+          {conf?.factor_no_confiable && (
+            <p className="hallazgo__alerta" role="alert">
+              <strong>No confiable:</strong> {conf.motivo_no_confiable ?? 'posible desfase de hora en el CSV'}.
+            </p>
+          )}
+          {parcial && r.cobertura && (
+            <p className="hallazgo__alerta">
+              <strong>Parcial:</strong> solo tiene datos suficientes {r.cobertura.meses_con_datos.length ? `en ${r.cobertura.meses_con_datos.join(', ')}` : 'ningún mes'}; sin datos en {r.cobertura.meses_sin_datos.join(', ')}. No es un factor de año completo.
+            </p>
+          )}
+          {conf?.unidades_sospechosas && (
+            <p className="hallazgo__alerta">
+              <strong>Revise las unidades del CSV</strong> (¿kW/m² o Wh en lugar de W/m²?): {conf.motivo_unidades}.
+            </p>
+          )}
           <p className="hallazgo__formula">
-            energía real <span aria-hidden="true">=</span>
+            energía {sensorNombre} <span aria-hidden="true">=</span>
             <span className="visualmente-oculto">igual a</span> ERA5 <span aria-hidden="true">×</span>
             <span className="visualmente-oculto">por</span> <span className="cifra">{num(anual.factor, 4)}</span>
           </p>
-          <p className="hallazgo__frase">
-            Sin factor, ERA5 sobrestima la energía del año en <strong className="cifra">{pct(anual.sesgo_relativo_pct)}</strong>.
-          </p>
+          {sesgo && sesgo.magnitud > 0 && (
+            <p className="hallazgo__frase">
+              {sim ? (
+                <>
+                  En esta simulación ERA5 {sesgo.verbo} <strong className="cifra">{pct(sesgo.magnitud)}</strong> (porque la simulación lo supone).
+                </>
+              ) : (
+                <>
+                  Sin factor, ERA5 {sesgo.verboSin} la energía de {periodo} en <strong className="cifra">{pct(sesgo.magnitud)}</strong> respecto de los datos subidos.
+                </>
+              )}
+            </p>
+          )}
+          {sesgo && sesgo.magnitud === 0 && <p className="hallazgo__frase">ERA5 y {sim ? 'el sensor simulado' : 'el sensor'} suman lo mismo.</p>}
           <p className="nota">
-            ERA5 es un reanálisis: un modelo global que estima la radiación de cada hora. El factor compara su energía con la del sensor en las mismas{' '}
-            <span className="cifra">{num(anual.n_horas)}</span> horas con sol.
+            ERA5 es un reanálisis: un modelo global que estima la radiación de cada hora. El factor compara su energía con la {sensorNombre} en las mismas{' '}
+            <span className="cifra">{num(anual.n_horas)}</span> horas diurnas.
           </p>
         </div>
         <div className="hallazgo__regla">
-          <ReglaCorreccion era5={anual.suma_fuente_kwh_m2} sensor={anual.suma_sensor_kwh_m2} sesgo={anual.sesgo_relativo_pct} />
-          <p className="nota">El tramo rayado es lo que ERA5 pone de más. Multiplicar por el factor lo recorta hasta la energía del sensor.</p>
+          <ReglaCorreccion era5={anual.suma_fuente_kwh_m2} sensor={anual.suma_sensor_kwh_m2} sesgo={anual.sesgo_relativo_pct} simulado={sim} periodo={periodo} />
+          <p className="nota">
+            {sesgo && !sesgo.sobre && sesgo.magnitud > 0
+              ? 'El tramo rayado es lo que le falta a ERA5 para igualar la energía. Multiplicar por el factor la sube hasta la del sensor.'
+              : 'El tramo rayado es lo que ERA5 pone de más. Multiplicar por el factor lo recorta hasta la energía del sensor.'}
+          </p>
         </div>
       </div>
 
@@ -135,10 +247,10 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
               )}
             </p>
             <p className="nota">
-              Como el sensor es simulado, se conoce el factor con el que se fabricó (el verdadero). Si el pipeline lo vuelve a encontrar, el cálculo está bien armado.
+              Esto comprueba la coherencia interna del cálculo: que el pipeline devuelva el factor con el que se fabricó el sensor simulado. No mide el error real de ERA5: el sensor se inventó a partir de ERA5 con un supuesto.
             </p>
           </div>
-          <EscalaSimulacion recuperado={anual.factor} verdadero={anual.factor_verdadero} />
+          {hay(anual.factor) && <EscalaSimulacion recuperado={anual.factor} verdadero={anual.factor_verdadero} />}
         </div>
       )}
 
@@ -152,21 +264,24 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                 <tr>
                   <th scope="col">Fase</th>
                   <th scope="col" className="num">Factor</th>
-                  <th scope="col" className="num">ERA5 se pasa</th>
-                  {r.simulado && <th scope="col" className="num">Verdadero</th>}
-                  <th scope="col" className="num">Horas con sol</th>
+                  <th scope="col" className="num">ERA5 frente al sensor</th>
+                  {sim && <th scope="col" className="num">Verdadero</th>}
+                  <th scope="col" className="num">Horas diurnas</th>
                 </tr>
               </thead>
               <tbody>
-                {fases.map((f) => (
-                  <tr key={f.periodo}>
-                    <th scope="row">{f.etiqueta ?? f.periodo}</th>
-                    <td className="cifra num">{num(f.factor, 4)}</td>
-                    <td className="cifra num">{pct(f.sesgo_relativo_pct)}</td>
-                    {r.simulado && <td className="cifra num">{f.factor_verdadero == null ? '—' : num(f.factor_verdadero, 4)}</td>}
-                    <td className="cifra num">{num(f.n_horas)}</td>
-                  </tr>
-                ))}
+                {fases.map((f) => {
+                  const s = leerSesgo(f.sesgo_relativo_pct)
+                  return (
+                    <tr key={f.periodo}>
+                      <th scope="row">{f.etiqueta ?? f.periodo}</th>
+                      <td className="cifra num">{num(f.factor, 4)}</td>
+                      <td className="cifra num">{s ? (s.magnitud === 0 ? 'igual' : `${s.verbo} ${pct(s.magnitud)}`) : SIN_DATO}</td>
+                      {sim && <td className="cifra num">{f.factor_verdadero == null ? SIN_DATO : num(f.factor_verdadero, 4)}</td>}
+                      <td className="cifra num">{num(f.n_horas)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -178,18 +293,18 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           id="fig-factor"
           numero={1}
           titulo="Factor mensual"
-          lectura="Cada punto es el factor de un mes. Cuanto más abajo de la línea 1,00, más se pasa ERA5 ese mes."
+          lectura="Cada punto es el factor de un mes. Por debajo de 1,00, ERA5 se pasa ese mes; por encima de 1,00, ERA5 se queda corto. Un mes sin punto no tiene datos."
           leyenda={[
             { nombre: 'Factor del mes', clase: 'serie-tinta', forma: 'punto' },
-            { nombre: `Factor anual ${num(anual.factor, 4)}`, clase: 'serie-tinta', forma: 'linea' },
+            { nombre: `${parcial ? 'Factor de los meses con datos' : 'Factor anual'} ${num(anual.factor, 4)}`, clase: 'serie-tinta', forma: 'linea' },
             ...(conVerdadero ? [{ nombre: 'Factor verdadero (simulación)', clase: 'serie-verdadero', forma: 'marca' as const }] : []),
           ]}
           tabla={{
-            columnas: conVerdadero ? ['Mes', 'Factor', 'Verdadero', 'Horas con sol'] : ['Mes', 'Factor', 'Horas con sol'],
+            columnas: conVerdadero ? ['Mes', 'Factor', 'Verdadero', 'Horas diurnas'] : ['Mes', 'Factor', 'Horas diurnas'],
             filas: e5.mensual.map((d) => {
               const mes = d.mes ? MESES_LARGOS[d.mes - 1] : d.periodo
               return conVerdadero
-                ? [mes, num(d.factor, 4), d.factor_verdadero == null ? '—' : num(d.factor_verdadero, 4), num(d.n_horas)]
+                ? [mes, num(d.factor, 4), d.factor_verdadero == null ? SIN_DATO : num(d.factor_verdadero, 4), num(d.n_horas)]
                 : [mes, num(d.factor, 4), num(d.n_horas)]
             }),
           }}
@@ -201,20 +316,21 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           id="fig-energia"
           numero={2}
           titulo="Energía mensual"
-          lectura="La barra rellena de ERA5 × factor debe quedar casi a la altura de la del sensor."
+          lectura="La barra rellena de ERA5 × factor debe quedar casi a la altura de la del sensor. NASA aparece solo en la tabla y suma únicamente las horas en que NASA tiene dato."
           leyenda={[
             { nombre: 'ERA5 sin corregir', clase: 'serie-era5', forma: 'contorno' },
             { nombre: 'ERA5 × factor', clase: 'serie-era5', forma: 'barra' },
-            { nombre: 'Sensor', clase: 'serie-sensor', forma: 'barra' },
+            { nombre: sim ? 'Sensor simulado' : 'Sensor', clase: 'serie-sensor', forma: 'barra' },
           ]}
           tabla={{
-            columnas: ['Mes', 'ERA5 sin corregir (kWh/m²)', 'ERA5 × factor (kWh/m²)', 'Sensor (kWh/m²)', 'NASA (kWh/m²)'],
+            columnas: ['Mes', 'ERA5 sin corregir (kWh/m²)', 'ERA5 × factor (kWh/m²)', 'Sensor (kWh/m²)', 'NASA (kWh/m²)', 'Horas con dato de NASA'],
             filas: r.energia_mensual.map((d) => [
               MESES_LARGOS[d.mes - 1],
               num(d.era5_sin_corregir_kwh_m2, 1),
               num(d.era5_por_factor_kwh_m2, 1),
               num(d.sensor_kwh_m2, 1),
-              d.nasa_kwh_m2 == null ? '—' : num(d.nasa_kwh_m2, 1),
+              hay(d.nasa_kwh_m2) ? num(d.nasa_kwh_m2, 1) : SIN_DATO,
+              `${num(d.nasa_n_horas)} de ${num(d.n_horas)}`,
             ]),
           }}
         >
@@ -225,20 +341,15 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           id="fig-dia"
           numero={3}
           titulo="Día típico"
-          lectura="Promedio de cada hora del día en el año, en hora solar aproximada (estimada con la longitud). Las tres curvas deben salir y ponerse con el sol a la vez."
+          lectura="Promedio de cada hora del día en el año, en hora solar aproximada (estimada con la longitud). Cada punto va en el centro de su hora: el dato de las 7 h es el promedio de 6:00 a 7:00 y se dibuja a las 6:30. Las tres curvas deben salir y ponerse con el sol a la vez."
           leyenda={[
-            { nombre: 'Sensor', clase: 'serie-sensor', forma: 'linea' },
+            { nombre: sim ? 'Sensor simulado' : 'Sensor', clase: 'serie-sensor', forma: 'linea' },
             { nombre: 'ERA5', clase: 'serie-era5', forma: 'linea' },
             { nombre: 'NASA POWER', clase: 'serie-nasa', forma: 'linea-discontinua' },
           ]}
           tabla={{
-            columnas: ['Hora solar aprox.', 'Sensor (W/m²)', 'ERA5 (W/m²)', 'NASA (W/m²)'],
-            filas: r.dia_tipico.map((d) => [
-              `${d.hora_local}:00`,
-              d.sensor == null ? '—' : num(d.sensor),
-              d.era5 == null ? '—' : num(d.era5),
-              d.nasa == null ? '—' : num(d.nasa),
-            ]),
+            columnas: ['Hora solar aprox. (intervalo)', 'Sensor (W/m²)', 'ERA5 (W/m²)', 'NASA (W/m²)'],
+            filas: r.dia_tipico.map((d) => [horaDeIntervalo(d.hora_centro), num(d.sensor), num(d.era5), num(d.nasa)]),
           }}
         >
           <GraficaDiaTipico datos={r.dia_tipico} />
@@ -249,20 +360,39 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           numero={4}
           titulo="Chequeo de desfase"
           lectura={
-            <>
-              Se corre el sensor hora por hora y se mide cuánto se parece a ERA5 (correlación).{' '}
-              {mejorSensor === 0
-                ? 'El máximo cae en 0 h: los relojes están alineados.'
-                : `El máximo cae en ${signo(mejorSensor)}${mejorSensor} h: revisa la zona horaria del sensor.`}
-              {mejorNasa != null && ` Entre ERA5 y NASA el máximo cae en ${signo(mejorNasa)}${mejorNasa} h.`}
-            </>
+            sim ? (
+              <>
+                Sensor–ERA5: <strong>no informativo</strong>. El sensor simulado se fabricó con ERA5, así que su desfase con ERA5 es 0 h por construcción y no dice nada sobre ningún reloj real. El único chequeo independiente de la hora es sensor–ERA5 con datos subidos.
+              </>
+            ) : (
+              <>
+                Se corre el sensor hora por hora y se mide cuánto se parece a ERA5 (correlación). Es el único chequeo independiente de la hora, porque el sensor no sale de ERA5.{' '}
+                {mejorSensor == null
+                  ? 'No se pudo calcular el máximo.'
+                  : mejorSensor === 0
+                    ? 'El máximo cae en 0 h: no se ve desfase de reloj (la prueba resuelve 1 h).'
+                    : `El máximo cae en ${signo(mejorSensor)}${mejorSensor} h: posible desfase de hora en el CSV; el factor no es confiable.`}
+              </>
+            )
           }
-          tabla={{
-            columnas: ['Corrimiento (h)', 'Correlación sensor–ERA5'],
-            filas: paresDesfase.map((p) => [`${signo(p.desfase_h)}${p.desfase_h}`, num(p.correlacion, 4)]),
-          }}
+          tabla={
+            sim
+              ? undefined
+              : {
+                  columnas: ['Corrimiento (h)', 'Correlación sensor–ERA5'],
+                  filas: paresDesfase.map((p) => [`${signo(p.desfase_h)}${p.desfase_h}`, num(p.correlacion, 4)]),
+                }
+          }
         >
-          <GraficaDesfase puntos={paresDesfase} mejor={mejorSensor} />
+          {sim ? (
+            <div className="noinfo" role="note">
+              <p className="noinfo__sello">No informativo</p>
+              <p className="noinfo__texto">El sensor se fabricó con ERA5: la correlación sensor–ERA5 es máxima en 0 h por construcción. No se dibuja porque no prueba nada.</p>
+            </div>
+          ) : (
+            <GraficaDesfase puntos={paresDesfase} mejor={mejorSensor} />
+          )}
+          <EvidenciaNasa r={r} />
         </Figura>
       </div>
 
@@ -275,7 +405,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
             <div>
               <dt>Parecido hora a hora</dt>
               <dd className="cifra">{num(cc.correlacion, 3)}</dd>
-              <dd className="datos__nota">Correlación: 1 sería idéntico. Aquí {leerCorrelacion(cc.correlacion)}.</dd>
+              {hay(cc.correlacion) && <dd className="datos__nota">Correlación: 1 sería idéntico. Aquí {leerCorrelacion(cc.correlacion)}.</dd>}
             </div>
             <div>
               <dt>Diferencia en energía del año</dt>
@@ -283,16 +413,30 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                 {signo(cc.diferencia_total_pct)}
                 {pct(cc.diferencia_total_pct, 2)}
               </dd>
-              <dd className="datos__nota">
-                ERA5 {num(cc.suma_a_kwh_m2)} contra NASA {num(cc.suma_b_kwh_m2)} kWh/m², en {num(cc.n_horas)} horas comunes.
-              </dd>
+              {hay(cc.suma_a_kwh_m2) && hay(cc.suma_b_kwh_m2) && (
+                <dd className="datos__nota">
+                  ERA5 {num(cc.suma_a_kwh_m2)} contra NASA {num(cc.suma_b_kwh_m2)} kWh/m², en {num(cc.n_horas)} horas comunes.
+                </dd>
+              )}
             </div>
           </dl>
           {cc.conclusion && <p className="nota">{cc.conclusion}</p>}
-          <p className="nota">
-            Con NASA en lugar de ERA5 el factor sería <span className="cifra">{num(nasa.factor, 4)}</span> (NASA se pasa{' '}
-            <span className="cifra">{pct(nasa.sesgo_relativo_pct)}</span>). NASA solo se usa como chequeo, no para cotizar.
-          </p>
+          {sim ? (
+            <p className="nota">Con un sensor simulado no se muestra «el factor con NASA»: el sensor se fabricó con ERA5, así que ese número no mide nada de NASA.</p>
+          ) : (
+            hay(nasa.factor) && (
+              <p className="nota">
+                Con NASA en lugar de ERA5 el factor sería <span className="cifra">{num(nasa.factor, 4)}</span>
+                {sesgoNasa && sesgoNasa.magnitud > 0 && (
+                  <>
+                    {' '}
+                    (NASA {sesgoNasa.verbo} <span className="cifra">{pct(sesgoNasa.magnitud)}</span>)
+                  </>
+                )}
+                . NASA solo se usa como chequeo, no para cotizar.
+              </p>
+            )
+          )}
         </section>
 
         <section className="anexo" aria-labelledby="t-integracion">
@@ -332,13 +476,10 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           </p>
         </section>
 
-        <section className="anexo anexo--ancho" aria-labelledby="t-calidad">
-          <h3 id="t-calidad" className="bloque__titulo">
-            Calidad de los datos, antes y después de limpiar
-          </h3>
+        <AnexoPlegable id="t-calidad" titulo="Calidad de los datos, antes y después de limpiar">
           <p className="nota">
             Cada fila es una regla de calidad. «Antes» y «después» cuentan los registros que la incumplen.
-            {r.simulado && ' «Inyectados» son los defectos que la simulación puso a propósito: la limpieza debe encontrarlos.'}
+            {sim && ' «Inyectados» son los defectos que la simulación puso a propósito: la limpieza debe encontrarlos.'}
           </p>
           <div className="tabla-envoltura">
             <table className="tabla tabla--calidad">
@@ -349,7 +490,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                   <th scope="col" className="num">Antes</th>
                   <th scope="col">Qué se hizo</th>
                   <th scope="col" className="num">Después</th>
-                  {r.simulado && <th scope="col" className="num">Inyectados</th>}
+                  {sim && <th scope="col" className="num">Inyectados</th>}
                 </tr>
               </thead>
               <tbody>
@@ -368,18 +509,15 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                     </td>
                     <td className="tabla__explica">{c.accion}</td>
                     <td className="cifra num">{num(c.problemas_despues)}</td>
-                    {r.simulado && <td className="cifra num">{c.inyectados == null ? '—' : num(c.inyectados)}</td>}
+                    {sim && <td className="cifra num">{c.inyectados == null ? SIN_DATO : num(c.inyectados)}</td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
+        </AnexoPlegable>
 
-        <section className="anexo anexo--ancho" aria-labelledby="t-fuentes">
-          <h3 id="t-fuentes" className="bloque__titulo">
-            De dónde sale cada dato
-          </h3>
+        <AnexoPlegable id="t-fuentes" titulo="De dónde sale cada dato">
           <div className="tabla-envoltura">
             <table className="tabla">
               <thead>
@@ -404,7 +542,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
               </tbody>
             </table>
           </div>
-        </section>
+        </AnexoPlegable>
       </div>
 
       {esDemo && <p className="aviso aviso--demo">Cifras de demostración generadas en el navegador (modo mock). Para un informe real, ejecuta la app con el backend.</p>}

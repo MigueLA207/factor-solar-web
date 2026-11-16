@@ -197,7 +197,7 @@ export default function App() {
               ¿Cuánto se equivoca ERA5 donde va tu sensor?
             </h1>
             <p className="planilla__entrada">
-              Elige el punto y el año, aporta los datos del sensor y el pipeline calcula el factor que convierte la radiación de ERA5 en energía real.
+              Elige el punto y el año, aporta los datos del sensor y el pipeline calcula el factor que ajusta la radiación de ERA5 a lo que mide ese sensor. Si el sensor es simulado, el resultado sale marcado como SIMULADO.
             </p>
           </div>
 
@@ -233,7 +233,9 @@ export default function App() {
                 ))}
               </div>
               <p className="campo__nota">
-                {anioFijo ? 'El año lo fija el sensor elegido.' : 'Se usa el año completo, hora por hora.'}
+                {anioFijo
+                  ? `El año lo fija el sensor elegido (${anio}); los demás quedan en gris.`
+                  : `Se usa el año completo, hora por hora. ${anios.max} es el último año completo con ERA5 y NASA.`}
               </p>
             </div>
 

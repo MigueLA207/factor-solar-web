@@ -28,6 +28,14 @@ export function marcas(min: number, max: number, n = 5) {
   return out
 }
 
+/** Como `marcas`, pero la última marca llega al máximo: el eje nunca queda más corto que los datos. */
+export function marcasQueCubren(min: number, max: number, n = 5) {
+  const out = marcas(min, max, n)
+  const paso = out.length > 1 ? out[1] - out[0] : max - min || 1
+  while (out[out.length - 1] < max - paso * 1e-6) out.push(Number((out[out.length - 1] + paso).toFixed(6)))
+  return out
+}
+
 export interface SerieLeyenda {
   nombre: string
   clase: string

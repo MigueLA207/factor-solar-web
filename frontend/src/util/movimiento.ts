@@ -8,10 +8,10 @@ export function prefiereMenosMovimiento() {
  * Lleva un número desde el valor anterior hasta el final una sola vez (ease-out exponencial).
  * Solo cambia lo que se pinta durante ~700 ms; el valor final es exactamente el de la API.
  */
-export function useAsentar(final: number, ms = 700) {
-  const [v, setV] = useState(() => (prefiereMenosMovimiento() ? final : final * 0.9))
+export function useAsentar(final: number | null, ms = 700) {
+  const [v, setV] = useState<number | null>(() => (final == null || prefiereMenosMovimiento() ? final : final * 0.9))
   useEffect(() => {
-    if (prefiereMenosMovimiento()) {
+    if (final == null || prefiereMenosMovimiento()) {
       setV(final)
       return
     }

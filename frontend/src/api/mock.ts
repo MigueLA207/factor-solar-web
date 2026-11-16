@@ -92,7 +92,7 @@ function fila(periodo: string, s: number, f: number, n: number, verdadero: numbe
   }
 }
 
-function resultadoDemo(p: PeticionAnalisis, id: string): Resultado {
+export function resultadoDemo(p: PeticionAnalisis, id: string): Resultado {
   const azar = generador(Math.abs(Math.round(p.lat * 1000) * 7919 + Math.round(p.lon * 1000) * 104729 + p.anio))
   const nubes = 0.35 + azar() * 0.4
   const anual = 2050 - nubes * 700
@@ -170,6 +170,14 @@ function resultadoDemo(p: PeticionAnalisis, id: string): Resultado {
       horas_nasa_fuera_del_anio: 48,
       regla_nasa: 'Demostración: con el backend aquí se explica cómo se pasa NASA de hora solar local a UTC.',
       ok: true,
+      era5_nasa_independiente: false,
+      sensor_era5_independiente: false,
+      verificacion_desfase_nasa: {
+        por_longitud_h: 6,
+        elegido_h: 6,
+        coincide_con_regla: true,
+        correlacion_por_candidato: { '+5': 0.9, '+6': 0.95, '+7': 0.91 },
+      },
     },
     factores: {
       era5: {
@@ -196,12 +204,18 @@ function resultadoDemo(p: PeticionAnalisis, id: string): Resultado {
       sensor_vs_era5: { serie_a: 'irr_sitio', serie_b: 'irr_era5', n_horas: suma(nh), diferencia_media: 0, mae: 0, correlacion: 0.997, suma_a_kwh_m2: r(sumS, 2), suma_b_kwh_m2: r(sumE5, 2), diferencia_total_pct: r(((sumS - sumE5) / sumE5) * 100, 2), filtro: 'demo' },
       sensor_vs_nasa: { serie_a: 'irr_sitio', serie_b: 'irr_nasa', n_horas: suma(nh), diferencia_media: 0, mae: 0, correlacion: 0.94, suma_a_kwh_m2: r(sumS, 2), suma_b_kwh_m2: r(sumN, 2), diferencia_total_pct: r(((sumS - sumN) / sumN) * 100, 2), filtro: 'demo' },
     },
-    dia_tipico: Array.from({ length: 24 }, (_, h) => ({
-      hora_local: h,
-      era5: r(pico * forma(h), 1),
-      sensor: r(pico * forma(h) * (sumS / sumE5), 1),
-      nasa: r(pico * forma(h) * (sumN / sumE5), 1),
-    })),
+    // La etiqueta H es el promedio de (H-1, H]: el punto va en H − 0,5 (la etiqueta 0 es el intervalo 23–24 h).
+    dia_tipico: Array.from({ length: 24 }, (_, i) => {
+      const h = (i + 1) % 24
+      const centro = i + 0.5
+      return {
+        hora_local: h,
+        hora_centro: centro,
+        era5: r(pico * forma(centro), 1),
+        sensor: r(pico * forma(centro) * (sumS / sumE5), 1),
+        nasa: r(pico * forma(centro) * (sumN / sumE5), 1),
+      }
+    }),
     energia_mensual: MESES.map((m, i) => ({
       mes: i + 1,
       etiqueta: m,
@@ -210,7 +224,16 @@ function resultadoDemo(p: PeticionAnalisis, id: string): Resultado {
       era5_por_factor_kwh_m2: r(e5[i] * (sumS / sumE5), 2),
       sensor_kwh_m2: r(se[i], 2),
       nasa_kwh_m2: r(na[i], 2),
+      nasa_n_horas: nh[i],
     })),
+    cobertura: {
+      meses: MESES.map((m, i) => ({ mes: i + 1, etiqueta: m, n_horas: nh[i], n_horas_posibles: nh[i], pct: 100, con_datos: true })),
+      meses_con_datos: [...MESES],
+      meses_sin_datos: [],
+      anio_completo: true,
+      criterio: 'demo',
+    },
+    confiabilidad: { factor_no_confiable: false, motivo_no_confiable: null, unidades_sospechosas: false, motivo_unidades: null },
     sesgo_era5_pct: r(((sumE5 - sumS) / sumS) * 100, 2),
     sesgo_nasa_pct: r(((sumN - sumS) / sumS) * 100, 2),
     advertencias: [],

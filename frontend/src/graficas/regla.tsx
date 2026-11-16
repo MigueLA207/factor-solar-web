@@ -1,25 +1,32 @@
 import { useId } from 'react'
-import { num, pct } from '../util/formato'
-import { escala, marcas, useAncho } from './base'
+import { hay, leerSesgo, num, pct } from '../util/formato'
+import { escala, marcas, marcasQueCubren, useAncho } from './base'
 
 interface PropsRegla {
-  /** Energía anual de ERA5 sin corregir en las horas del factor (kWh/m²) */
-  era5: number
-  /** Energía anual del sensor en las mismas horas (kWh/m²) */
-  sensor: number
-  /** Cuánto se pasa ERA5, en % (lo da la API) */
-  sesgo: number
+  /** Energía de ERA5 sin corregir en las horas del factor (kWh/m²) */
+  era5: number | null
+  /** Energía del sensor en las mismas horas (kWh/m²) */
+  sensor: number | null
+  /** (ERA5 − sensor) / sensor, en %: positivo = ERA5 se pasa, negativo = se queda corto (lo da la API) */
+  sesgo: number | null
+  /** Con sensor simulado el rótulo lo dice */
+  simulado?: boolean
+  /** "el año" o, con un año parcial, "los meses con datos" */
+  periodo?: string
 }
 
 /**
- * Regla de corrección (la pieza propia de la app): la energía anual de ERA5 contra la del sensor
- * sobre una regla graduada. El tramo rayado es lo que ERA5 pone de más; el factor lo recorta.
+ * Regla de corrección (la pieza propia de la app): la energía de ERA5 contra la del sensor sobre una regla
+ * graduada. El tramo rayado es la diferencia entre las dos: lo que ERA5 pone de más (si se pasa) o lo que le
+ * falta (si se queda corto); el factor la cierra.
  */
-export function ReglaCorreccion({ era5, sensor, sesgo }: PropsRegla) {
+export function ReglaCorreccion({ era5, sensor, sesgo, simulado = false, periodo = 'el año' }: PropsRegla) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
   const idRayado = 'rayado' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  if (!hay(era5) || !hay(sensor)) return <p className="nota">Sin datos suficientes para dibujar la regla.</p>
+  const lectura = leerSesgo(sesgo)
   const max = Math.max(era5, sensor)
-  const ticks = marcas(0, max * 1.04, ancho < 480 ? 4 : 8)
+  const ticks = marcasQueCubren(0, max, ancho < 480 ? 4 : 8)
   const fin = ticks[ticks.length - 1]
   const x = escala(0, fin, 4, ancho - 18)
   const reglaY = 22
@@ -28,6 +35,8 @@ export function ReglaCorreccion({ era5, sensor, sesgo }: PropsRegla) {
   const ySensor = 118
   const alto = ySensor + grosor + 8
   const sub = (ticks[1] - ticks[0]) / 5
+  const nombreSensor = simulado ? 'Sensor simulado' : 'Sensor'
+  const sobra = era5 >= sensor
 
   return (
     <div className="regla" ref={ref}>
@@ -35,7 +44,7 @@ export function ReglaCorreccion({ era5, sensor, sesgo }: PropsRegla) {
         width={ancho}
         height={alto}
         role="img"
-        aria-label={`Energía anual en las horas del factor: ERA5 sin corregir ${num(era5)} kWh/m², sensor ${num(sensor)} kWh/m². ERA5 se pasa ${pct(sesgo)}.`}
+        aria-label={`Energía de ${periodo} en las horas del factor: ERA5 sin corregir ${num(era5)} kWh/m², ${nombreSensor.toLowerCase()} ${num(sensor)} kWh/m². ${lectura ? `ERA5 ${lectura.verbo}${lectura.magnitud ? ` ${pct(lectura.magnitud)}` : ''}.` : ''}`}
       >
         <defs>
           <pattern id={idRayado} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -56,24 +65,26 @@ export function ReglaCorreccion({ era5, sensor, sesgo }: PropsRegla) {
           </g>
         ))}
         <text x={x(fin)} y={reglaY + 15} textAnchor="end" className="regla__unidad">
-          kWh/m² en el año
+          kWh/m² en {periodo}
         </text>
 
         <text x={x(0)} y={yEra5 - 7} className="regla__rotulo">
           ERA5 sin corregir <tspan className="regla__valor">{num(era5)}</tspan>
         </text>
         <rect x={x(0) + 0.75} y={yEra5 + 0.75} width={Math.max(0, x(era5) - x(0) - 1.5)} height={grosor - 1.5} className="serie-era5 contorno regla__barra" />
+        {/* Tramo rayado = diferencia entre ERA5 y el sensor. Si ERA5 se pasa, va dentro de la barra de ERA5 (el exceso);
+            si se queda corto, continúa la barra de ERA5 hasta la del sensor (lo que le falta). */}
         <rect
-          x={x(sensor)}
+          x={sobra ? x(sensor) : x(era5)}
           y={yEra5 + 0.75}
-          width={Math.max(0, x(era5) - x(sensor) - 0.75)}
+          width={Math.max(0, sobra ? x(era5) - x(sensor) - 0.75 : x(sensor) - x(era5) - 0.75)}
           height={grosor - 1.5}
           className="regla__exceso"
           fill={`url(#${idRayado})`}
         />
 
         <text x={x(0)} y={ySensor - 7} className="regla__rotulo">
-          Sensor = ERA5 × factor <tspan className="regla__valor">{num(sensor)}</tspan>
+          {nombreSensor} = ERA5 × factor <tspan className="regla__valor">{num(sensor)}</tspan>
         </text>
         <rect x={x(0)} y={ySensor} width={Math.max(0, x(sensor) - x(0))} height={grosor} className="serie-sensor relleno regla__barra" />
 

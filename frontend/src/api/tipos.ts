@@ -191,7 +191,7 @@ export interface PasoLinaje {
 
 export interface PuntoDesfase {
   desfase_h: number
-  correlacion: number
+  correlacion: number | null
 }
 
 export interface Desfase {
@@ -199,25 +199,61 @@ export interface Desfase {
   mejor_desfase_h: Record<string, number>
   desfase_nasa_aplicado_h: number
   horas_nasa_fuera_del_anio: number
+  /**
+   * Corrimiento de NASA: la regla de franjas de 15° (por_longitud_h) y las correlaciones con ERA5 de los
+   * 3 candidatos (regla ±1 h) ANTES de elegir. El elegido se ajustó contra ERA5: no es una verificación independiente.
+   */
   verificacion_desfase_nasa?: {
     por_longitud_h: number
     elegido_h: number
     coincide_con_regla: boolean
-    correlacion_por_candidato: Record<string, number>
+    correlacion_por_candidato: Record<string, number | null>
   }
   regla_nasa: string
   ok: boolean
+  /** Siempre false: ERA5–NASA solo descarta errores de hora mayores de 1 h. */
+  era5_nasa_independiente?: boolean
+  /** true solo con datos subidos: un sensor simulado se fabrica con ERA5 y da 0 h por construcción. */
+  sensor_era5_independiente?: boolean
+  longitud_regla_nasa?: number
+}
+
+export interface MesCobertura {
+  mes: number
+  etiqueta: string
+  n_horas: number
+  n_horas_posibles: number
+  pct: number
+  con_datos: boolean
+}
+
+/** Meses del año que el sensor cubre de verdad (≥ 50 % de sus horas diurnas con ERA5). */
+export interface Cobertura {
+  meses: MesCobertura[]
+  meses_con_datos: string[]
+  meses_sin_datos: string[]
+  anio_completo: boolean
+  criterio: string
+}
+
+/** Señales de que un CSV subido puede no ser confiable (en sensores simulados siempre en false). */
+export interface Confiabilidad {
+  factor_no_confiable: boolean
+  motivo_no_confiable: string | null
+  unidades_sospechosas: boolean
+  motivo_unidades: string | null
 }
 
 export interface FilaFactor {
   /** "anual", "ene".."dic" o "seca_1".. */
   periodo: string
   n_horas: number
-  suma_sensor_kwh_m2: number
-  suma_fuente_kwh_m2: number
-  factor: number
-  /** (fuente − sensor) / sensor × 100: cuánto se pasa la fuente sin corregir */
-  sesgo_relativo_pct: number
+  /** Los números pueden ser null (periodo sin datos): se muestran como «—», nunca como 0. */
+  suma_sensor_kwh_m2: number | null
+  suma_fuente_kwh_m2: number | null
+  factor: number | null
+  /** (fuente − sensor) / sensor × 100. Positivo: la fuente se pasa; negativo: se queda corta. */
+  sesgo_relativo_pct: number | null
   factor_verdadero: number | null
   error_abs: number | null
   mes?: number
@@ -236,20 +272,22 @@ export interface Comparacion {
   serie_a: string
   serie_b: string
   n_horas: number
-  diferencia_media: number
-  mae: number
-  correlacion: number
-  suma_a_kwh_m2: number
-  suma_b_kwh_m2: number
+  diferencia_media: number | null
+  mae: number | null
+  correlacion: number | null
+  suma_a_kwh_m2: number | null
+  suma_b_kwh_m2: number | null
   /** (a − b) / b × 100 */
-  diferencia_total_pct: number
+  diferencia_total_pct: number | null
   filtro: string
   conclusion?: string
 }
 
 export interface PuntoDiaTipico {
-  /** Hora solar aproximada (estimada con la longitud), 0..23 */
+  /** Etiqueta de FIN de intervalo en hora solar aproximada, 0..23 (0 = de 23:00 a 24:00) */
   hora_local: number
+  /** Centro del intervalo (H − 0,5), de 0,5 a 23,5: ahí se dibuja el punto */
+  hora_centro: number
   sensor: number | null
   era5: number | null
   nasa: number | null
@@ -259,10 +297,12 @@ export interface EnergiaMensual {
   mes: number
   etiqueta: string
   n_horas: number
-  era5_sin_corregir_kwh_m2: number
-  era5_por_factor_kwh_m2: number
-  sensor_kwh_m2: number
+  era5_sin_corregir_kwh_m2: number | null
+  era5_por_factor_kwh_m2: number | null
+  sensor_kwh_m2: number | null
+  /** NASA se suma solo donde NASA tiene dato y lleva sus propias horas (nasa_n_horas). */
   nasa_kwh_m2: number | null
+  nasa_n_horas: number
 }
 
 export interface Resultado {
@@ -298,8 +338,10 @@ export interface Resultado {
   }
   dia_tipico: PuntoDiaTipico[]
   energia_mensual: EnergiaMensual[]
-  sesgo_era5_pct: number
-  sesgo_nasa_pct: number
+  sesgo_era5_pct: number | null
+  sesgo_nasa_pct: number | null
+  cobertura?: Cobertura
+  confiabilidad?: Confiabilidad
   calentamiento_modulo_c?: number | null
   advertencias: string[]
   fuentes_api?: Record<string, unknown>

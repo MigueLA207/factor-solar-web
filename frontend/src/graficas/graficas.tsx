@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import type { EnergiaMensual, FilaFactor, PuntoDesfase, PuntoDiaTipico } from '../api/tipos'
-import { MESES_CORTOS, MESES_LARGOS, num } from '../util/formato'
-import { Lectura, MARGEN, escala, marcas, useAncho, useIndicePuntero } from './base'
+import { MESES_CORTOS, MESES_LARGOS, hay, num } from '../util/formato'
+import { Lectura, MARGEN, escala, marcas, marcasQueCubren, useAncho, useIndicePuntero } from './base'
 
 const ALTO = 250
 
@@ -34,19 +34,22 @@ function EjeY({ ticks, y, ancho, fmt }: { ticks: number[]; y: (v: number) => num
 /* ------------------------------------------------------------------ */
 /* Fig. Factor mensual: tallo desde 1,0 (ERA5 sin corregir) hasta el factor */
 
-export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; anual: number }) {
+export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; anual: number | null }) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
   const x0 = MARGEN.l
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / datos.length
-  const vals = datos.map((d) => d.factor)
-  const verdaderos = datos.map((d) => d.factor_verdadero).filter((v): v is number => v != null)
-  const yMin = Math.min(...vals, ...verdaderos, anual) - 0.03
+  // Un mes sin datos trae factor null: no se dibuja (ni se cuenta como 0).
+  const vals = datos.map((d) => d.factor).filter(hay)
+  const verdaderos = datos.map((d) => d.factor_verdadero).filter(hay)
+  const sinDatos = vals.length === 0
+  const yMin = Math.min(1, ...vals, ...verdaderos, ...(hay(anual) ? [anual] : [])) - 0.03
   const yMax = Math.max(1.02, Math.max(...vals, ...verdaderos) + 0.02)
   const y = escala(yMin, yMax, ALTO - MARGEN.b, MARGEN.t)
   const { indice, setIndice, mover, salir } = useIndicePuntero(datos.length, x0, x1)
   const sel = indice != null ? datos[indice] : null
   const cx = (i: number) => x0 + banda * (i + 0.5)
+  if (sinDatos) return <p className="nota">Ningún mes tiene datos para calcular el factor.</p>
 
   return (
     <div className="grafica" ref={ref}>
@@ -54,7 +57,7 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         width={ancho}
         height={ALTO}
         role="img"
-        aria-label={`Factor mensual de ${num(Math.min(...vals), 4)} a ${num(Math.max(...vals), 4)}; factor anual ${num(anual, 4)}. Use las flechas para leer cada mes.`}
+        aria-label={`Factor mensual de ${num(Math.min(...vals), 4)} a ${num(Math.max(...vals), 4)}; factor ${hay(anual) ? num(anual, 4) : 'sin dato'}. Use las flechas para leer cada mes.`}
         tabIndex={0}
         onPointerMove={mover}
         onPointerLeave={salir}
@@ -66,10 +69,11 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         <text x={x1} y={y(1) - 6} textAnchor="end" className="anotacion">
           1,00 = ERA5 sin corregir
         </text>
-        <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />
+        {hay(anual) && <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />}
         {sel && indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
         {datos.map((d, i) => {
-          // El tallo mide "cuánto se pasa ERA5": va de la línea 1,00 al punto del mes y termina en él.
+          if (!hay(d.factor)) return <g key={d.periodo} className="tallo tallo--vacio" />
+          // El tallo mide la distancia de ERA5 al sensor: va de la línea 1,00 al punto del mes y termina en él.
           const yPunto = y(d.factor)
           const r = indice === i ? 6 : 4.5
           const fin = yPunto + (yPunto > y(1) ? -r : r)
@@ -93,11 +97,11 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         </g>
       </svg>
       {sel && indice != null && (
-        <Lectura x={cx(indice)} y={y(sel.factor)} ancho={ancho}>
+        <Lectura x={cx(indice)} y={hay(sel.factor) ? y(sel.factor) : y(1)} ancho={ancho}>
           <strong>{sel.mes ? MESES_LARGOS[sel.mes - 1] : sel.periodo}</strong>
-          <span>factor {num(sel.factor, 4)}</span>
+          <span>factor {hay(sel.factor) ? num(sel.factor, 4) : 'sin datos'}</span>
           {sel.factor_verdadero != null && <span>verdadero {num(sel.factor_verdadero, 4)}</span>}
-          <span className="lectura__suave">{num(sel.n_horas)} horas con sol</span>
+          <span className="lectura__suave">{num(sel.n_horas)} horas diurnas</span>
         </Lectura>
       )}
     </div>
@@ -112,8 +116,8 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
   const x0 = MARGEN.l
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / datos.length
-  const max = Math.max(...datos.flatMap((d) => [d.era5_sin_corregir_kwh_m2, d.sensor_kwh_m2, d.era5_por_factor_kwh_m2]))
-  const ticks = marcas(0, max * 1.05, 4)
+  const max = Math.max(0.1, ...datos.flatMap((d) => [d.era5_sin_corregir_kwh_m2, d.sensor_kwh_m2, d.era5_por_factor_kwh_m2]).filter(hay))
+  const ticks = marcasQueCubren(0, max * 1.02, 4)
   const yMax = ticks[ticks.length - 1]
   const y = escala(0, yMax, ALTO - MARGEN.b, MARGEN.t)
   const hueco = 2
@@ -141,9 +145,13 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
         {indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
         {datos.map((d, i) => (
           <g key={d.mes}>
-            <rect className="serie-era5 contorno barra-crece" x={bx(i, 0) + 0.75} y={y(d.era5_sin_corregir_kwh_m2) + 0.75} width={barra - 1.5} height={Math.max(0, base - y(d.era5_sin_corregir_kwh_m2) - 0.75)} />
-            <rect className="serie-era5 relleno barra-crece" x={bx(i, 1)} y={y(d.era5_por_factor_kwh_m2)} width={barra} height={base - y(d.era5_por_factor_kwh_m2)} />
-            <rect className="serie-sensor relleno barra-crece" x={bx(i, 2)} y={y(d.sensor_kwh_m2)} width={barra} height={base - y(d.sensor_kwh_m2)} />
+            {hay(d.era5_sin_corregir_kwh_m2) && (
+              <rect className="serie-era5 contorno barra-crece" x={bx(i, 0) + 0.75} y={y(d.era5_sin_corregir_kwh_m2) + 0.75} width={barra - 1.5} height={Math.max(0, base - y(d.era5_sin_corregir_kwh_m2) - 0.75)} />
+            )}
+            {hay(d.era5_por_factor_kwh_m2) && (
+              <rect className="serie-era5 relleno barra-crece" x={bx(i, 1)} y={y(d.era5_por_factor_kwh_m2)} width={barra} height={base - y(d.era5_por_factor_kwh_m2)} />
+            )}
+            {hay(d.sensor_kwh_m2) && <rect className="serie-sensor relleno barra-crece" x={bx(i, 2)} y={y(d.sensor_kwh_m2)} width={barra} height={base - y(d.sensor_kwh_m2)} />}
           </g>
         ))}
         <line x1={x0} x2={x1} y1={base} y2={base} className="eje__base" />
@@ -156,7 +164,7 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
         </g>
       </svg>
       {sel && indice != null && (
-        <Lectura x={x0 + banda * (indice + 0.5)} y={y(sel.era5_sin_corregir_kwh_m2)} ancho={ancho}>
+        <Lectura x={x0 + banda * (indice + 0.5)} y={hay(sel.era5_sin_corregir_kwh_m2) ? y(sel.era5_sin_corregir_kwh_m2) : base} ancho={ancho}>
           <strong>{MESES_LARGOS[sel.mes - 1]}</strong>
           <span>ERA5 sin corregir {num(sel.era5_sin_corregir_kwh_m2, 1)}</span>
           <span>ERA5 × factor {num(sel.era5_por_factor_kwh_m2, 1)}</span>
@@ -169,37 +177,38 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Fig. Día típico: tres curvas por hora solar aproximada */
+/* Fig. Día típico: tres curvas por hora solar aproximada, cada punto en el CENTRO de su hora */
 
 export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
   const x0 = MARGEN.l
   const x1 = ancho - MARGEN.r
-  const x = escala(0, 23, x0, x1)
-  const max = Math.max(...datos.flatMap((d) => [d.sensor ?? 0, d.era5 ?? 0, d.nasa ?? 0]))
-  const ticks = marcas(0, max * 1.05, 4)
+  // El valor de la etiqueta H es el promedio de (H-1, H]: va en H - 0,5. El eje cubre 0–24 h.
+  const x = escala(0, 24, x0, x1)
+  const todos = datos.flatMap((d) => [d.sensor, d.era5, d.nasa]).filter(hay)
+  const ticks = marcasQueCubren(0, Math.max(1, ...todos) * 1.02, 4)
   const y = escala(0, ticks[ticks.length - 1], ALTO - MARGEN.b, MARGEN.t)
-  const paso = (x1 - x0) / 23
-  const { indice, setIndice, mover, salir } = useIndicePuntero(24, x0 - paso / 2, x1 + paso / 2)
-  const sel = indice != null ? datos.find((d) => d.hora_local === indice) : null
+  const { indice, setIndice, mover, salir } = useIndicePuntero(datos.length, x0, x1)
+  const sel = indice != null ? datos[indice] : null
 
   const trazo = (val: (d: PuntoDiaTipico) => number | null) => {
     let d = ''
     let corte = true
     for (const p of datos) {
       const v = val(p)
-      if (v == null) {
+      if (!hay(v)) {
         corte = true
         continue
       }
-      d += `${corte ? 'M' : 'L'}${x(p.hora_local).toFixed(1)},${y(v).toFixed(1)}`
+      d += `${corte ? 'M' : 'L'}${x(p.hora_centro).toFixed(1)},${y(v).toFixed(1)}`
       corte = false
     }
     return d
   }
   const punto = (v: number | null, clase: string) =>
-    sel && v != null ? <circle cx={x(sel.hora_local)} cy={y(v)} r={4.5} className={`${clase} relleno anillo`} /> : null
-  const leer = (v: number | null) => (v == null ? 'sin dato' : num(v))
+    sel && hay(v) ? <circle cx={x(sel.hora_centro)} cy={y(v)} r={4.5} className={`${clase} relleno anillo`} /> : null
+  const leer = (v: number | null) => (hay(v) ? num(v) : 'sin dato')
+  const picoSel = sel ? Math.max(...[sel.era5, sel.sensor].filter(hay), 0) : 0
 
   return (
     <div className="grafica" ref={ref}>
@@ -207,15 +216,15 @@ export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
         width={ancho}
         height={ALTO}
         role="img"
-        aria-label="Día típico: irradiancia media por hora solar aproximada del sensor, ERA5 y NASA POWER, en W/m². Use las flechas para leer cada hora."
+        aria-label="Día típico: irradiancia media por hora solar aproximada del sensor, ERA5 y NASA POWER, en W/m². Cada punto está en el centro de su hora. Use las flechas para leer cada hora."
         tabIndex={0}
         onPointerMove={mover}
         onPointerLeave={salir}
-        onKeyDown={teclas(24, indice, setIndice)}
+        onKeyDown={teclas(datos.length, indice, setIndice)}
         onBlur={salir}
       >
         <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v)} />
-        {sel && <line x1={x(sel.hora_local)} x2={x(sel.hora_local)} y1={MARGEN.t} y2={ALTO - MARGEN.b} className="cruz" />}
+        {sel && <line x1={x(sel.hora_centro)} x2={x(sel.hora_centro)} y1={MARGEN.t} y2={ALTO - MARGEN.b} className="cruz" />}
         <path d={trazo((d) => d.nasa)} className="serie-nasa trazo trazo--discontinuo" />
         <path d={trazo((d) => d.era5)} className="serie-era5 trazo linea-dibuja" pathLength={1} />
         <path d={trazo((d) => d.sensor)} className="serie-sensor trazo linea-dibuja" pathLength={1} />
@@ -228,7 +237,7 @@ export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
         )}
         <line x1={x0} x2={x1} y1={y(0)} y2={y(0)} className="eje__base" />
         <g className="eje">
-          {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => (
+          {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
             <text key={h} x={x(h)} y={ALTO - 10} textAnchor="middle">
               {`${h} h`}
             </text>
@@ -236,28 +245,33 @@ export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
         </g>
       </svg>
       {sel && (
-        <Lectura x={x(sel.hora_local)} y={y(Math.max(sel.era5 ?? 0, sel.sensor ?? 0))} ancho={ancho}>
-          <strong>{sel.hora_local}:00, hora solar aprox.</strong>
+        <Lectura x={x(sel.hora_centro)} y={y(picoSel)} ancho={ancho}>
+          <strong>
+            {horaDeIntervalo(sel.hora_centro)}, hora solar aprox.
+          </strong>
           <span>Sensor {leer(sel.sensor)}</span>
           <span>ERA5 {leer(sel.era5)}</span>
           <span>NASA {leer(sel.nasa)}</span>
-          <span className="lectura__suave">W/m²</span>
+          <span className="lectura__suave">W/m², promedio de esa hora</span>
         </Lectura>
       )}
     </div>
   )
 }
 
+/** "6:00–7:00" a partir del centro del intervalo (6,5). */
+export const horaDeIntervalo = (centro: number) => `${Math.floor(centro)}:00–${Math.floor(centro) + 1}:00`
+
 /* ------------------------------------------------------------------ */
 /* Fig. Chequeo de desfase: correlación por corrimiento en horas */
 
-export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejor: number }) {
+export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejor: number | null }) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
   const alto = 220
   const x0 = MARGEN.l
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / puntos.length
-  const yMin = Math.floor(Math.min(0, ...puntos.map((p) => p.correlacion)) * 4) / 4
+  const yMin = Math.floor(Math.min(0, ...puntos.map((p) => p.correlacion).filter(hay)) * 4) / 4
   const ticks = marcas(yMin, 1, 4)
   const y = escala(yMin, 1, alto - MARGEN.b, MARGEN.t)
   const { indice, setIndice, mover, salir } = useIndicePuntero(puntos.length, x0, x1)
@@ -270,7 +284,7 @@ export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejo
         width={ancho}
         height={alto}
         role="img"
-        aria-label={`Correlación entre sensor y ERA5 al correr el sensor de ${puntos[0]?.desfase_h} a ${puntos[puntos.length - 1]?.desfase_h} horas. Máximo en ${mejor} h.`}
+        aria-label={`Correlación entre sensor y ERA5 al correr el sensor de ${puntos[0]?.desfase_h} a ${puntos[puntos.length - 1]?.desfase_h} horas. ${mejor == null ? 'Sin máximo calculable.' : `Máximo en ${mejor} h.`}`}
         tabIndex={0}
         onPointerMove={mover}
         onPointerLeave={salir}
@@ -279,6 +293,7 @@ export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejo
       >
         <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v, 2)} />
         {puntos.map((p, i) => {
+          if (!hay(p.correlacion)) return null
           const esMax = p.desfase_h === mejor
           const cx = x0 + banda * (i + 0.5)
           const arriba = Math.min(y(p.correlacion), y(0))
@@ -311,7 +326,7 @@ export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejo
         </g>
       </svg>
       {sel && indice != null && (
-        <Lectura x={x0 + banda * (indice + 0.5)} y={y(Math.max(0, sel.correlacion))} ancho={ancho}>
+        <Lectura x={x0 + banda * (indice + 0.5)} y={hay(sel.correlacion) ? y(Math.max(0, sel.correlacion)) : y(0)} ancho={ancho}>
           <strong>sensor corrido {sel.desfase_h > 0 ? `+${sel.desfase_h}` : sel.desfase_h} h</strong>
           <span>correlación {num(sel.correlacion, 3)}</span>
         </Lectura>

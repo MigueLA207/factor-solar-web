@@ -1,0 +1,10 @@
+# Blueprint de Render: un servicio web gratuito construido desde el Dockerfile.
+services:
+  - type: web
+    name: factor-solar
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/salud
+    envVars:
+      - key: FACTOR_SOLAR_HOSTS
+        value: "*"

@@ -7,6 +7,7 @@ Contrato v1 (ver odd/tasks/factor-solar-web.md). Si existe frontend/dist, se sir
 """
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Literal
@@ -29,6 +30,8 @@ log = logging.getLogger("factor_solar")
 VERSION = "1.0.0"
 MAX_CSV_BYTES = 30 * 1024 * 1024
 HOSTS_PERMITIDOS = ["localhost", "127.0.0.1"]
+# Al publicar en la nube, FACTOR_SOLAR_HOSTS agrega el dominio público (separados por coma, o "*").
+HOSTS_PERMITIDOS += [h.strip() for h in os.environ.get("FACTOR_SOLAR_HOSTS", "").split(",") if h.strip()]
 # Orígenes de desarrollo de Vite (dev y preview) además del mismo origen.
 ORIGEN_DESARROLLO = re.compile(r"^http://(localhost|127\.0\.0\.1):(51\d\d|4173)$")
 

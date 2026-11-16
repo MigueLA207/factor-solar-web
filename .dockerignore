@@ -1,0 +1,14 @@
+**/node_modules
+**/__pycache__
+**/.venv
+.git
+.claude
+qa
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+datos/cache
+datos/sensores
+datos/analisis
+datos/prueba
+datos/referencia

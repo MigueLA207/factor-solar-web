@@ -133,7 +133,7 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / datos.length
   const max = Math.max(0.1, ...datos.flatMap((d) => [d.era5_sin_corregir_kwh_m2, d.sensor_kwh_m2, d.era5_por_factor_kwh_m2]).filter(hay))
-  const ticks = marcasQueCubren(0, max * 1.1, 4)
+  const ticks = marcasQueCubren(0, max * 1.1, 5)
   const yMax = ticks[ticks.length - 1]
   const y = escala(0, yMax, ALTO - MARGEN.b, MARGEN.t)
   const hueco = 2

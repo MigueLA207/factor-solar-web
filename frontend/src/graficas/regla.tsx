@@ -101,7 +101,7 @@ export function EscalaSimulacion({ recuperado, verdadero }: { recuperado: number
   const b = Math.max(recuperado, verdadero)
   const margen = Math.max(0.01, (b - a) * 3)
   const ticks = marcas(a - margen, b + margen, 4)
-  const x = escala(ticks[0], ticks[ticks.length - 1], 14, ancho - 14)
+  const x = escala(ticks[0], ticks[ticks.length - 1], 24, ancho - 24)
   const ly = 40
   return (
     <div className="escala-sim" ref={ref}>

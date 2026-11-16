@@ -129,6 +129,13 @@ ERA5 × factor, sensor). Descarga de tablas.
     En el camino salió un `tight-leading` real en el hallazgo (el título ahora comparte fila con el sello y se partía en
     dos líneas con interlineado 1,2): corregido con interlineado 1,3–1,4.
 
+- 16/11/2026 — W4, ronda 3 del juicio aplicada (9 puntos): Fig. 1 sin rótulo «año 0,90» y con línea anual de 3 px
+  (leyenda con trazos fieles: gruesa, línea con punto, discontinua); regla sin recorte a la derecha; «del año»; error
+  absoluto calculado desde los valores a 4 decimales; supuestos con coma (se redactan de nuevo al cargar un sensor
+  simulado, porque los JSON de `datos/ejemplos/` traían punto); unidades en ejes (Fig. 2 «kWh/m² por mes», Fig. 3
+  «W/m²», Fig. 4 «desfase en horas (respecto de ERA5)»); explicaciones de NASA plegadas en `<details>` «Ver detalle»;
+  mensaje CSRF sin `localhost:8000`. `pytest`: 130 passed; `npm run build`: ok. Capturas en `qa/revision-final/`.
+
 ## Decisiones W4 (ronda 1 del juicio)
 - **Regla de hora de NASA (hallazgo 4).** Se aplica a `cabecera_nasa["lon"]` (longitud de la celda que devuelve NASA).
   Medido sobre las 8 ubicaciones reales en caché (y 3 más), corrimiento que de verdad maximiza la correlación con ERA5

@@ -57,7 +57,7 @@ async def revisar_origen(request: Request, call_next):
         # Los navegadores siempre mandan Origin en un POST entre sitios; sin Origin es un cliente local (curl, pruebas).
         if origen is not None and not origen_permitido(origen, request.headers.get("host", ""), request.url.scheme):
             return JSONResponse(status_code=403, content={"detail": {
-                "mensaje": "Pedido rechazado: viene de otro sitio web. Abra la aplicación desde http://localhost:8000."}})
+                "mensaje": "Pedido rechazado: viene de otro sitio web. Abra la aplicación desde su propia dirección, no desde otra página."}})
     return await call_next(request)
 
 

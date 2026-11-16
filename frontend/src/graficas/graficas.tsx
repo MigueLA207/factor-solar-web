@@ -16,9 +16,14 @@ function teclas(n: number, indice: number | null, set: (i: number | null) => voi
   }
 }
 
-function EjeY({ ticks, y, ancho, fmt }: { ticks: number[]; y: (v: number) => number; ancho: number; fmt: (v: number) => string }) {
+function EjeY({ ticks, y, ancho, fmt, unidad }: { ticks: number[]; y: (v: number) => number; ancho: number; fmt: (v: number) => string; unidad?: string }) {
   return (
     <g className="eje">
+      {unidad && (
+        <text x={2} y={10} textAnchor="start" className="eje__unidad">
+          {unidad}
+        </text>
+      )}
       {ticks.map((t) => (
         <g key={t} transform={`translate(0 ${y(t)})`}>
           <line x1={MARGEN.l} x2={ancho - MARGEN.r} className="eje__guia" />
@@ -87,12 +92,7 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         </text>
         {/* Factor del año: la referencia contra la que se compara cada mes */}
         {hay(anual) && (
-          <>
-            <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />
-            <text x={x1} y={y(anual) + 16} textAnchor="end" className="anotacion anotacion--fuerte">
-              año {num(anual, 2)}
-            </text>
-          </>
+          <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />
         )}
         {sel && indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
         {/* Factor verdadero de la simulación: línea tenue para comparar */}
@@ -133,7 +133,7 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / datos.length
   const max = Math.max(0.1, ...datos.flatMap((d) => [d.era5_sin_corregir_kwh_m2, d.sensor_kwh_m2, d.era5_por_factor_kwh_m2]).filter(hay))
-  const ticks = marcasQueCubren(0, max * 1.02, 4)
+  const ticks = marcasQueCubren(0, max * 1.1, 4)
   const yMax = ticks[ticks.length - 1]
   const y = escala(0, yMax, ALTO - MARGEN.b, MARGEN.t)
   const hueco = 2
@@ -157,7 +157,7 @@ export function GraficaEnergiaMensual({ datos }: { datos: EnergiaMensual[] }) {
         onKeyDown={teclas(datos.length, indice, setIndice)}
         onBlur={salir}
       >
-        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v)} />
+        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v)} unidad="kWh/m² por mes" />
         {indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
         {datos.map((d, i) => (
           <g key={d.mes}>
@@ -239,7 +239,7 @@ export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
         onKeyDown={teclas(datos.length, indice, setIndice)}
         onBlur={salir}
       >
-        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v)} />
+        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v)} unidad="W/m²" />
         {sel && <line x1={x(sel.hora_centro)} x2={x(sel.hora_centro)} y1={MARGEN.t} y2={ALTO - MARGEN.b} className="cruz" />}
         <path d={trazo((d) => d.nasa)} className="serie-nasa trazo trazo--discontinuo" />
         <path d={trazo((d) => d.era5)} className="serie-era5 trazo linea-dibuja" pathLength={1} />
@@ -253,7 +253,7 @@ export function GraficaDiaTipico({ datos }: { datos: PuntoDiaTipico[] }) {
         )}
         <line x1={x0} x2={x1} y1={y(0)} y2={y(0)} className="eje__base" />
         <g className="eje">
-          {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
+          {(ancho < 480 ? [0, 6, 12, 18, 24] : [0, 3, 6, 9, 12, 15, 18, 21, 24]).map((h) => (
             <text key={h} x={x(h)} y={ALTO - 10} textAnchor="middle">
               {`${h} h`}
             </text>
@@ -283,13 +283,14 @@ export const horaDeIntervalo = (centro: number) => `${Math.floor(centro)}:00–$
 
 export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejor: number | null }) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
-  const alto = 220
+  const alto = 250
+  const bajo = 46 // pie del eje: números y título
   const x0 = MARGEN.l
   const x1 = ancho - MARGEN.r
   const banda = (x1 - x0) / puntos.length
   const yMin = Math.floor(Math.min(0, ...puntos.map((p) => p.correlacion).filter(hay)) * 4) / 4
   const ticks = marcas(yMin, 1, 4)
-  const y = escala(yMin, 1, alto - MARGEN.b, MARGEN.t)
+  const y = escala(yMin, 1, alto - bajo, MARGEN.t)
   const { indice, setIndice, mover, salir } = useIndicePuntero(puntos.length, x0, x1)
   const sel = indice != null ? puntos[indice] : null
   const barra = Math.min(22, banda * 0.62)
@@ -307,7 +308,7 @@ export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejo
         onKeyDown={teclas(puntos.length, indice, setIndice)}
         onBlur={salir}
       >
-        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v, 2)} />
+        <EjeY ticks={ticks} y={y} ancho={ancho} fmt={(v) => num(v, 2)} unidad="correlación" />
         {puntos.map((p, i) => {
           if (!hay(p.correlacion)) return null
           const esMax = p.desfase_h === mejor
@@ -334,11 +335,14 @@ export function GraficaDesfase({ puntos, mejor }: { puntos: PuntoDesfase[]; mejo
         <g className="eje">
           {puntos.map((p, i) =>
             (ancho < 480 ? p.desfase_h % 4 !== 0 : p.desfase_h % 2 !== 0) ? null : (
-              <text key={p.desfase_h} x={x0 + banda * (i + 0.5)} y={alto - 10} textAnchor="middle">
+              <text key={p.desfase_h} x={x0 + banda * (i + 0.5)} y={alto - bajo + 18} textAnchor="middle">
                 {p.desfase_h > 0 ? `+${p.desfase_h}` : p.desfase_h}
               </text>
             ),
           )}
+          <text x={(x0 + x1) / 2} y={alto - 6} textAnchor="middle" className="eje__titulo">
+            desfase en horas (respecto de ERA5)
+          </text>
         </g>
       </svg>
       {sel && indice != null && (

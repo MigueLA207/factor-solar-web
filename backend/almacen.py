@@ -20,7 +20,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-from nucleo import extraccion, pipeline, reglas
+from nucleo import extraccion, pipeline, reglas, simulador
 
 # ---------------------------------------------------------------------------
 # Sensores
@@ -93,6 +93,13 @@ def leer_meta(sensor_id):
     return json.loads(ruta.read_text(encoding="utf-8"))
 
 
+def _supuestos_para_personas(meta):
+    """Los supuestos guardados pueden traer punto decimal (ejemplos viejos): se redactan de nuevo con coma."""
+    if meta.get("simulado") and meta.get("parametros") and meta.get("semilla") is not None:
+        return simulador.supuestos(simulador.ParametrosSimulacion.desde(meta["parametros"]), meta["semilla"])
+    return meta.get("supuestos", [])
+
+
 def cargar_sensor(sensor_id):
     """Devuelve (pipeline.Sensor, meta) o None si no existe."""
     meta = leer_meta(sensor_id)
@@ -107,7 +114,7 @@ def cargar_sensor(sensor_id):
         verdadero = pd.read_pickle(carpeta / "verdadero.pkl") if (carpeta / "verdadero.pkl").exists() else None
     sensor = pipeline.Sensor(
         crudo=crudo, frecuencia=meta["frecuencia"], simulado=meta["simulado"], verdadero=verdadero,
-        inyectados=meta.get("defectos_inyectados"), supuestos=meta.get("supuestos", []),
+        inyectados=meta.get("defectos_inyectados"), supuestos=_supuestos_para_personas(meta),
         tiene_temperatura=meta.get("tiene_temperatura", True), lat=meta.get("lat"), lon=meta.get("lon"),
         nombre=meta.get("nombre"))
     return sensor, meta

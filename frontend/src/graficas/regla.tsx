@@ -28,7 +28,7 @@ export function ReglaCorreccion({ era5, sensor, sesgo, simulado = false, periodo
   const max = Math.max(era5, sensor)
   const ticks = marcasQueCubren(0, max, ancho < 480 ? 4 : 8)
   const fin = ticks[ticks.length - 1]
-  const x = escala(0, fin, 4, ancho - 18)
+  const x = escala(0, fin, 4, ancho - 34)
   const reglaY = 22
   const grosor = 20
   const yEra5 = 62
@@ -44,7 +44,7 @@ export function ReglaCorreccion({ era5, sensor, sesgo, simulado = false, periodo
         width={ancho}
         height={alto}
         role="img"
-        aria-label={`Energía de ${periodo} en las horas del factor: ERA5 sin corregir ${num(era5)} kWh/m², ${nombreSensor.toLowerCase()} ${num(sensor)} kWh/m². ${lectura ? `ERA5 ${lectura.verbo}${lectura.magnitud ? ` ${pct(lectura.magnitud)}` : ''}.` : ''}`}
+        aria-label={`Energía ${periodo === 'el año' ? 'del año' : 'de los meses con datos'} en las horas del factor: ERA5 sin corregir ${num(era5)} kWh/m², ${nombreSensor.toLowerCase()} ${num(sensor)} kWh/m². ${lectura ? `ERA5 ${lectura.verbo}${lectura.magnitud ? ` ${pct(lectura.magnitud)}` : ''}.` : ''}`}
       >
         <defs>
           <pattern id={idRayado} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

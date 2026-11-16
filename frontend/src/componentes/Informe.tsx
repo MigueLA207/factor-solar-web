@@ -73,9 +73,15 @@ function EvidenciaNasa({ r }: { r: Resultado }) {
         </table>
       </div>
       <p className="nota">
-        La regla de franjas de 15° da <span className="cifra">{signo(v.por_longitud_h)}{v.por_longitud_h} h</span>; se probó ±1 h contra ERA5 y se usó el de mayor correlación ({signo(v.elegido_h)}
-        {v.elegido_h} h{v.coincide_con_regla ? ', igual a la regla' : ', distinto de la regla'}). Como el corrimiento se eligió mirando a ERA5, <strong>la coincidencia de hora entre ERA5 y NASA no es un chequeo independiente</strong>: solo descarta errores de más de 1 h.
+        Como el corrimiento de NASA se eligió mirando a ERA5, <strong>la coincidencia de hora entre ERA5 y NASA no es un chequeo independiente</strong>: solo descarta errores de más de 1 h.
       </p>
+      <details className="detalle">
+        <summary>Ver detalle</summary>
+        <p className="nota">
+          La regla de franjas de 15° da <span className="cifra">{signo(v.por_longitud_h)}{v.por_longitud_h} h</span>; se probó ±1 h contra ERA5 y se usó el de mayor correlación ({signo(v.elegido_h)}
+          {v.elegido_h} h{v.coincide_con_regla ? ', igual a la regla' : ', distinto de la regla'}).
+        </p>
+      </details>
     </div>
   )
 }
@@ -212,7 +218,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
                 </>
               ) : (
                 <>
-                  Sin factor, ERA5 {sesgo.verboSin} la energía de {periodo} en <strong className="cifra">{pct(sesgo.magnitud)}</strong> respecto de los datos subidos.
+                  Sin factor, ERA5 {sesgo.verboSin} la energía {periodo === 'el año' ? 'del año' : 'de los meses con datos'} en <strong className="cifra">{pct(sesgo.magnitud)}</strong> respecto de los datos subidos.
                 </>
               )}
             </p>
@@ -239,10 +245,10 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
             <h3 className="bloque__titulo">¿El método recupera el factor verdadero?</h3>
             <p className="validacion__cifras">
               Recuperado <strong className="cifra">{num(anual.factor, 4)}</strong> · verdadero <strong className="cifra">{num(anual.factor_verdadero, 4)}</strong>
-              {anual.error_abs != null && (
+              {hay(anual.factor) && (
                 <>
                   {' '}
-                  · error absoluto <strong className="cifra">{num(anual.error_abs, 4)}</strong>
+                  · error absoluto <strong className="cifra">{num(Math.abs(Number(anual.factor.toFixed(4)) - Number(anual.factor_verdadero.toFixed(4))), 4)}</strong>
                 </>
               )}
             </p>
@@ -295,9 +301,9 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           titulo="Factor mensual"
           lectura="Cada punto es el factor de un mes: por cuánto hay que multiplicar ERA5 ese mes. Más abajo = ERA5 se equivoca más. La línea gruesa es el factor del año. Un mes sin punto no tiene datos."
           leyenda={[
-            { nombre: 'Factor del mes', clase: 'serie-tinta', forma: 'punto' },
-            { nombre: `${parcial ? 'Factor de los meses con datos' : 'Factor anual'} ${num(anual.factor, 4)}`, clase: 'serie-tinta', forma: 'linea' },
-            ...(conVerdadero ? [{ nombre: 'Factor verdadero (simulación)', clase: 'serie-verdadero', forma: 'linea' as const }] : []),
+            { nombre: 'Factor del mes', clase: 'serie-tinta', forma: 'linea-punto' },
+            { nombre: `${parcial ? 'Factor de los meses con datos' : 'Factor anual'} ${num(anual.factor, 4)}`, clase: 'serie-tinta', forma: 'linea-gruesa' },
+            ...(conVerdadero ? [{ nombre: 'Factor verdadero (simulación)', clase: 'serie-verdadero', forma: 'linea-discontinua' as const }] : []),
           ]}
           tabla={{
             columnas: conVerdadero ? ['Mes', 'Factor', 'Verdadero', 'Horas diurnas'] : ['Mes', 'Factor', 'Horas diurnas'],
@@ -420,7 +426,17 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
               )}
             </div>
           </dl>
-          {cc.conclusion && <p className="nota">{cc.conclusion}</p>}
+          {cc.conclusion && (
+            <>
+              <p className="nota">
+                {cc.conclusion.split(' Ojo: ')[0]} Este chequeo no es independiente: el corrimiento de NASA se eligió contra ERA5.
+              </p>
+              <details className="detalle">
+                <summary>Ver detalle</summary>
+                <p className="nota">{cc.conclusion.includes(' Ojo: ') ? cc.conclusion.split(' Ojo: ').slice(1).join(' ') : cc.conclusion}</p>
+              </details>
+            </>
+          )}
           {sim ? (
             <p className="nota">Con un sensor simulado no se muestra «el factor con NASA»: el sensor se fabricó con ERA5, así que ese número no mide nada de NASA.</p>
           ) : (
@@ -471,9 +487,13 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
             </table>
           </div>
           <p className="nota">
-            NASA entrega la hora en hora solar local; se corrió <span className="cifra">{signo(r.desfase.desfase_nasa_aplicado_h)}{r.desfase.desfase_nasa_aplicado_h}</span> h para llevarla a UTC, y{' '}
-            <span className="cifra">{num(r.desfase.horas_nasa_fuera_del_anio)}</span> horas de NASA quedaron fuera del año. {r.desfase.regla_nasa}
+            NASA se llevó de hora solar local a UTC con un corrimiento de <span className="cifra">{signo(r.desfase.desfase_nasa_aplicado_h)}{r.desfase.desfase_nasa_aplicado_h}</span> h;{' '}
+            <span className="cifra">{num(r.desfase.horas_nasa_fuera_del_anio)}</span> horas de NASA quedaron fuera del año.
           </p>
+          <details className="detalle">
+            <summary>Ver detalle</summary>
+            <p className="nota">{r.desfase.regla_nasa}</p>
+          </details>
         </section>
 
         <AnexoPlegable id="t-calidad" titulo="Calidad de los datos, antes y después de limpiar">

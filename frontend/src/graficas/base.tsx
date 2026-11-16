@@ -39,7 +39,7 @@ export function marcasQueCubren(min: number, max: number, n = 5) {
 export interface SerieLeyenda {
   nombre: string
   clase: string
-  forma: 'barra' | 'contorno' | 'linea' | 'linea-discontinua' | 'punto' | 'marca'
+  forma: 'barra' | 'contorno' | 'linea' | 'linea-discontinua' | 'linea-gruesa' | 'linea-punto' | 'punto' | 'marca'
 }
 
 export function Leyenda({ series }: { series: SerieLeyenda[] }) {
@@ -52,6 +52,13 @@ export function Leyenda({ series }: { series: SerieLeyenda[] }) {
             {s.forma === 'contorno' && <rect x="5.75" y="1.75" width="10.5" height="8.5" rx="1" className="contorno" />}
             {s.forma === 'linea' && <line x1="0" x2="22" y1="6" y2="6" className="trazo" />}
             {s.forma === 'linea-discontinua' && <line x1="0" x2="22" y1="6" y2="6" className="trazo trazo--discontinuo" />}
+            {s.forma === 'linea-gruesa' && <line x1="0" x2="22" y1="6" y2="6" className="trazo trazo--grueso" />}
+            {s.forma === 'linea-punto' && (
+              <>
+                <line x1="0" x2="22" y1="6" y2="6" className="trazo" />
+                <circle cx="11" cy="6" r="3.5" className="relleno" />
+              </>
+            )}
             {s.forma === 'punto' && <circle cx="11" cy="6" r="4" className="relleno" />}
             {s.forma === 'marca' && <line x1="4" x2="18" y1="6" y2="6" className="trazo" />}
           </svg>
@@ -146,4 +153,4 @@ export function useIndicePuntero(n: number, x0: number, x1: number) {
   return { indice: i, setIndice: setI, mover, salir: () => setI(null) }
 }
 
-export const MARGEN = { t: 14, r: 16, b: 30, l: 46 }
+export const MARGEN = { t: 24, r: 16, b: 30, l: 46 }

@@ -1095,6 +1095,11 @@ fieldset:disabled .ejemplo {
   fill: var(--tinta-3);
   font-variant-numeric: tabular-nums;
 }
+.eje text.eje__unidad,
+.eje text.eje__titulo {
+  font-size: 12px;
+  fill: var(--tinta-2);
+}
 .eje__guia {
   stroke: var(--papel-2);
   stroke-width: 1;
@@ -1111,7 +1116,7 @@ fieldset:disabled .ejemplo {
 .referencia--anual {
   stroke: var(--tinta);
   stroke-dasharray: none;
-  stroke-width: 1.5;
+  stroke-width: 3;
 }
 .anotacion {
   font-size: 12px;
@@ -1164,6 +1169,10 @@ fieldset:disabled .ejemplo {
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
+}
+.trazo--grueso {
+  stroke-width: 3;
+  stroke-linecap: butt;
 }
 .trazo--discontinuo {
   stroke-dasharray: 5 4;
@@ -1692,4 +1701,22 @@ dd {
 .anexo--plegable > summary:focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
+}
+
+.detalle {
+  margin-top: 6px;
+  font-size: 0.875rem;
+}
+.detalle > summary {
+  cursor: pointer;
+  color: var(--tinta-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.detalle > summary:hover {
+  color: var(--tinta);
+}
+.detalle > summary:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 3px;
 }

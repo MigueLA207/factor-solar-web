@@ -62,9 +62,9 @@ ERA5 × factor, sensor). Descarga de tablas.
 ## Tareas
 - [x] W1 — Backend: núcleo adaptado + API + caché + simulador + ejemplos + tests (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
 - [x] W2 — Frontend v1: mapa, flujo, progreso por fases, resultados (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
-- [ ] W3 — QA visual con Playwright + crítica Impeccable + iteración de diseño (delegado). Avance hecho dentro de W2: capturas mock y reales, 2 rondas de crítica, detector; falta revisión fresca (finish reviewer).
+- [x] W3 — QA y correcciones: Fig. 1, formato decimal, estados de error, CSV de la AE4 de punta a punta (0,9103), instantáneas fuera de git, `iniciar.bat`, README, capturas y detector (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
 - [ ] W4 — Revisión independiente (corrección de cálculos, honestidad "simulado", UX) y correcciones.
-- [ ] W5 — `iniciar.bat`, README corto, informe de la mañana.
+- [ ] W5 — Informe de la mañana. (`iniciar.bat` y README se hicieron en W3.)
 
 ## Progreso
 - 16/11/2026 04:35 — Carpeta creada, git iniciado, Impeccable instalado (scope proyecto).
@@ -90,6 +90,58 @@ ERA5 × factor, sensor). Descarga de tablas.
   - taste-skill: `copy-lint` 0 FAIL, 1 WARN (`copy-stat-strip`: selector de años y cifras del informe, que
     son el producto; justificado). `check.mjs` no aplica a una SPA (espera secciones de página de marketing;
     termina con error de estructura), así que su gate no se corrió.
+
+- 16/11/2026 ~06:30 — W3 terminado. Evidencia (`<comando>: <resultado>`):
+  - `cd backend && python -m pytest -q -p no:cacheprovider tests`: 37 passed (33 + 4 de `test_formato.py`;
+    `test_cruce_ae4.py` ahora también exige "Correlación 0,947" y "+7,76 %" en la conclusión).
+  - `cd frontend && npm run build`: `tsc -b` sin errores, `vite build` ok.
+  - `QA_MODO=real npx playwright test -c qa/playwright.config.ts` (backend real en :8000): 5 de 5 pasan.
+    - `e2e-real.spec.ts` › "el sensor de la AE4 da el factor de la AE4": punto 6,147148; −75,377316, año 2024,
+      sube `datos/prueba/sensor_rionegro_2024_CRUDO.csv.gz` (descomprimido en memoria; 526 594 registros por
+      minuto), régimen bimodal. La UI muestra factor ERA5 **0,9103**, "el factor sería 0,9809" (NASA),
+      "+7,76 %" y "Correlación 0,947"; 4 846 horas; el informe no tiene ninguna cifra con punto decimal; los 12
+      tallos de la Fig. 1 terminan en el borde de su punto. Captura `qa/capturas/real-07-csv-ae4-1440.png`
+      (y `real-07-csv-ae4-hallazgo-1440.png`). ERA5/NASA vinieron por la extracción de la app (caché local de
+      la app, no las respuestas de `datos/referencia/`).
+    - Estados de error a 1440 y 390: `real-08-sin-servidor-*`, `real-08-sin-servidor-detenido-*`,
+      `real-09-pedido-rechazado-*`, `real-10-etapa-con-error-*` (y el reintento termina el informe).
+    - `capturas.spec.ts` regeneró `real-01` a `real-06` a 1440 y 390.
+  - Detector Impeccable en la página viva (`detect --viewport 1440x900` y `390x844` sobre http://127.0.0.1:5175/):
+    0 hallazgos. Sobre las instantáneas del informe, del CSV de la AE4 y del error: 1 hallazgo en cada una,
+    `cramped-padding` en `mapa__lienzo` (Leaflet; ya justificado en W2).
+  - Lanzador: `FACTOR_SOLAR_SIN_NAVEGADOR=1 cmd /c iniciar.bat` sin `backend\.venv`: creó el entorno, instaló
+    `requirements.txt`, reconstruyó la interfaz (src más nuevo que dist) y arrancó uvicorn; `/api/salud` → 200,
+    `/` → 200 text/html "Factor Solar". Segunda corrida: "Entorno listo / Dependencias al día / Interfaz al día"
+    y arranca en segundos. Servidor detenido después.
+
+## Decisiones W3
+- **Fig. 1.** La geometría ya terminaba el tallo en el punto (medido en el DOM); lo que se leía como "tallo hasta
+  abajo" era la marca del factor verdadero cruzando tallo y punto. Ahora el tallo para en el borde del punto y la
+  muesca del verdadero va a la derecha del tallo, sin cruzarlo. Una prueba E2E lo vigila.
+- **Cifras en frases del backend** (`backend/nucleo/formato.py`): coma decimal y espacio fino (U+202F) de miles,
+  igual que la UI; coordenadas en frases separadas por ";". El JSON y los CSV del ZIP siguen con punto decimal
+  (lo dice `LEEME.txt`). La diferencia ERA5–NASA se muestra con 2 decimales (+7,76 %, como la AE4).
+- **Datos subidos.** `etiqueta_sensor` pasa de "MEDIDO (CSV subido)" a "DATOS DEL USUARIO (CSV subido)"; el
+  informe muestra una franja en tinta "Datos del usuario": la app no puede comprobar que vengan de un sensor
+  real. Matiz: el CSV de la AE4 es simulado, pero subido se trata como datos del usuario (`simulado: false`).
+  El nombre del sitio ya no cae al nombre del archivo ("punto elegido en el mapa").
+- **Subida de CSV**: ya no se manda el año elegido; el año lo fija el archivo (antes, con 2025 por defecto, un
+  CSV de 2024 se podía rechazar). Arreglado de paso: la UI leía `avisos` y el backend manda `advertencias`.
+- **Errores.** Tres casos, mismo bloque editorial (regla roja arriba, título serif, qué pasó, qué hacer,
+  "Reintentar" y "Revisar los datos"), puesto antes del registro de pasos: sin servidor (además, franja en tinta
+  bajo la cabecera con "Reintentar la conexión" si `/api/salud` no responde al abrir), pedido rechazado
+  (`{"detail":{"mensaje":...}}`) y etapa con error (nombra la etapa). Los casos (b) y (c) se provocan en la
+  prueba interceptando la API con Playwright; el (a) abortando las llamadas a `/api/`.
+- **Instantáneas HTML** (`qa/instantaneas/`): fuera de git y en `.gitignore` (traían rutas locales). Siguen en
+  la historia del commit 6c4855a (sin push; reescribir la historia no se hizo).
+- **Sensor de prueba**: se versiona solo `datos/prueba/sensor_rionegro_2024_CRUDO.csv.gz` (2,8 MB; idéntico,
+  SHA-256, a `datos/referencia/ae4_sensor_rionegro_2024_CRUDO.csv.gz`); el `.csv` sin comprimir está ignorado.
+- **Lanzador**: `iniciar.bat` usa `py -3` o `python`, sello `backend\.venvequisitos-instalados.txt` para
+  reinstalar solo si cambia `requirements.txt`, reconstruye si `src`, `index.html` o `package.json` son más
+  nuevos que `dist\index.html`, avisa si el puerto 8000 está ocupado, sirve en 127.0.0.1 y abre el navegador
+  cuando `/api/salud` responde. `FACTOR_SOLAR_SIN_NAVEGADOR=1` es para pruebas.
+- taste-skill (`design-taste-frontend`): sigue sin aplicar su gate a esta SPA (es para sitios de marketing); se
+  respetaron sus reglas generales de copia y estados.
 
 ## Decisiones de diseño W2
 - **Mundo fijado por Miguel** (no se tiró la ruleta de Impeccable: `seed: none (pinned)`): "editorial /

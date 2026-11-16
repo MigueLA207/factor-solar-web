@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from nucleo import transformacion
 
@@ -32,9 +33,20 @@ def test_hora_con_menos_de_48_minutos_queda_vacia():
     assert horario.loc["2024-05-01 13:00", "irr_sitio"] == 50.0
 
 
-def test_chequeo_de_desfase_detecta_una_hora_corrida(era5_ae4):
-    integrado = pd.DataFrame({"irr_era5": era5_ae4["irr_era5"], "irr_nasa": era5_ae4["irr_era5"],
-                              "irr_sitio": era5_ae4["irr_era5"].shift(1)})
-    _tabla, mejores, avisos = transformacion.chequear_desfase(integrado)
+def _integrado(era5, corrimiento_sensor):
+    # Sensor = ERA5 corrida `corrimiento_sensor` horas (el valor de ERA5 en t - corrimiento aparece en t); NASA alineada.
+    return pd.DataFrame({"irr_era5": era5["irr_era5"], "irr_nasa": era5["irr_era5"],
+                         "irr_sitio": era5["irr_era5"].shift(corrimiento_sensor)})
+
+
+@pytest.mark.parametrize("corrimiento", [1, -2, 3])
+def test_chequeo_de_desfase_detecta_la_serie_corrida(era5_ae4, corrimiento):
+    _tabla, mejores, avisos = transformacion.chequear_desfase(_integrado(era5_ae4, corrimiento))
     assert mejores["ERA5 vs NASA"] == 0
-    assert mejores["sensor vs ERA5"] != 0 and len(avisos) == 1
+    assert mejores["sensor vs ERA5"] == corrimiento
+    assert len(avisos) == 1 and "sensor vs ERA5" in avisos[0] and f"{corrimiento:+d} h" in avisos[0]
+
+
+def test_chequeo_de_desfase_sin_corrimiento_no_avisa(era5_ae4):
+    _tabla, mejores, avisos = transformacion.chequear_desfase(_integrado(era5_ae4, 0))
+    assert mejores == {"ERA5 vs NASA": 0, "sensor vs ERA5": 0} and avisos == []

@@ -94,6 +94,9 @@ def correlacion_con_desfase(serie_a, serie_b, horas):
 
 def chequear_desfase(integrado):
     # Si las horas están bien alineadas, la correlación es máxima con desfase 0.
+    # OJO: ERA5 vs NASA NO es independiente (el corrimiento de NASA se eligió contra ERA5, ver
+    # elegir_desfase_nasa): solo descarta errores > 1 h. El único chequeo independiente es sensor vs ERA5, y
+    # solo con datos subidos por el usuario (un sensor simulado se fabrica con ERA5: da 0 por construcción).
     pares = [("ERA5 vs NASA", "irr_era5", "irr_nasa"),
              ("sensor vs ERA5", "irr_sitio", "irr_era5")]
     filas = []
@@ -115,7 +118,8 @@ def chequear_desfase(integrado):
         mejor = int(del_par.loc[del_par["correlacion"].idxmax(), "desfase_h"])
         mejores[nombre] = mejor
         if mejor != 0:
-            causa = ("la hora de NASA POWER (hora solar local) no quedó bien alineada con UTC"
+            causa = ("el corrimiento de NASA se ajustó contra ERA5 solo en ±1 h respecto de la regla; un máximo "
+                     "distinto de 0 aquí indica un error de hora mayor de 1 h en NASA"
                      if nombre == "ERA5 vs NASA" else
                      "la hora del sensor no parece estar en UTC o no usa la etiqueta al final de la hora")
             advertencias.append(f"Desfase en {nombre}: la correlación es máxima en {mejor:+d} h, no en 0. "

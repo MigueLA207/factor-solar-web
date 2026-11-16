@@ -65,6 +65,38 @@ def _nada(*_args, **_kwargs):
     return None
 
 
+UNIDADES_FACTOR_MIN, UNIDADES_FACTOR_MAX = 0.5, 1.5
+UNIDADES_MAXIMO_DIARIO_MIN_W_M2 = 50.0
+
+
+def _confiabilidad(sensor, integrado, mejores, f_era5, advertencias):
+    # Señales de que un CSV subido puede no ser confiable. Solo datos subidos: un sensor simulado se fabrica con
+    # ERA5 y estas señales no tienen sentido.
+    salida = {"factor_no_confiable": False, "motivo_no_confiable": None,
+              "unidades_sospechosas": False, "motivo_unidades": None}
+    if sensor.simulado:
+        return salida
+    mejor_sensor = mejores.get("sensor vs ERA5")
+    if mejor_sensor not in (None, 0):
+        salida["factor_no_confiable"] = True
+        salida["motivo_no_confiable"] = (f"posible desfase de hora en el CSV: la correlación sensor–ERA5 es máxima con "
+                                         f"{mejor_sensor:+d} h, no con 0 h")
+    maximos_diarios = integrado.dropna(subset=["irr_sitio"]).groupby(integrado["ts_utc"].dt.floor("D"))["irr_sitio"].max()
+    mediana_maximos = float(maximos_diarios.median()) if len(maximos_diarios) else None
+    motivos = []
+    if f_era5 is not None and (f_era5 < UNIDADES_FACTOR_MIN or f_era5 > UNIDADES_FACTOR_MAX):
+        motivos.append(f"el factor anual ({dec(f_era5, 4)}) está fuera de {dec(UNIDADES_FACTOR_MIN, 1)}–{dec(UNIDADES_FACTOR_MAX, 1)}")
+    if mediana_maximos is not None and mediana_maximos < UNIDADES_MAXIMO_DIARIO_MIN_W_M2:
+        motivos.append(f"el máximo diario típico del sensor es de solo {dec(mediana_maximos, 1)} W/m²")
+    if motivos:
+        salida["unidades_sospechosas"] = True
+        salida["motivo_unidades"] = "; ".join(motivos)
+        advertencias.append("Revise las unidades del CSV (¿kW/m² o Wh en lugar de W/m²?): " + salida["motivo_unidades"] + ".")
+    if salida["factor_no_confiable"]:
+        advertencias.append("Factor no confiable: " + salida["motivo_no_confiable"] + ".")
+    return salida
+
+
 def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos=None, nombre=None):
     """
     Corre el pipeline completo. `crudos` permite inyectar los textos crudos de las API
@@ -116,20 +148,24 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
 
     avance("calidad_fuentes", "en_curso", "")
     era5, filas_era5, aviso_era5 = calidad.limpiar_era5(era5_crudo, anio, lat, lon)
-    nasa, filas_nasa, aviso_nasa = calidad.limpiar_nasa(nasa_crudo, lat, lon)
+    # La regla de franjas de 15° se aplica a la longitud de la celda que NASA devolvió (cabecera), no a la pedida.
+    lon_nasa = cabecera_nasa["lon"] if cabecera_nasa["lon"] is not None else lon
+    nasa, filas_nasa, aviso_nasa = calidad.limpiar_nasa(nasa_crudo, lat, lon, sol.desfase_nasa_h(lon_nasa))
     advertencias += [a for a in (aviso_era5, aviso_nasa) if a]
     faltantes_nasa = int(filas_nasa[1]["problemas_antes"])
     avance("calidad_fuentes", "listo", f"ERA5 {miles(era5['irr_era5'].isna().sum())} vacíos; "
                                        f"NASA {miles(faltantes_nasa)} valores -999")
 
     avance("hora_utc", "en_curso", "")
-    desfase_elegido, info_desfase = transformacion.elegir_desfase_nasa(era5, nasa, lon)
+    desfase_elegido, info_desfase = transformacion.elegir_desfase_nasa(era5, nasa, lon_nasa)
     if not info_desfase["coincide_con_regla"]:
         advertencias.append(
             f"La regla de longitud daba {info_desfase['por_longitud_h']:+d} h para NASA, pero la correlación con "
             f"ERA5 es mayor con {desfase_elegido:+d} h (punto cerca del borde de una franja de 15°); "
             f"se usó {desfase_elegido:+d} h.")
-    nasa_utc, desfase_nasa, horas_fuera = transformacion.pasar_nasa_a_utc(nasa, lon, anio, desfase_elegido)
+        # El conteo de luz de noche y la fila de calidad deben usar el corrimiento ELEGIDO, no el de la regla.
+        nasa, filas_nasa, _ = calidad.limpiar_nasa(nasa_crudo, lat, lon, desfase_elegido)
+    nasa_utc, desfase_nasa, horas_fuera = transformacion.pasar_nasa_a_utc(nasa, lon_nasa, anio, desfase_elegido)
     filas_nasa[-1]["regla"] = f"Hora en hora solar local (UTC{1 - desfase_elegido:+d}), no en UTC"
     filas_nasa[-1]["accion"] = f"se corre {desfase_elegido:+d} h a UTC (etiqueta al final de la hora)"
     if sensor.frecuencia == "minuto":
@@ -174,6 +210,12 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     avance("resumen", "en_curso", "")
     dia_tipico = kpi.calcular_dia_tipico(integrado, lon)
     energia = kpi.calcular_energia_mensual(integrado, f_era5)
+    cobertura = kpi.calcular_cobertura(integrado)
+    if not cobertura["anio_completo"]:
+        advertencias.append(
+            "Año parcial: el factor anual solo usa los meses con datos (" + ", ".join(cobertura["meses_con_datos"])
+            + "); sin datos suficientes: " + ", ".join(cobertura["meses_sin_datos"]) + ". No es un factor de año completo.")
+    confiabilidad = _confiabilidad(sensor, integrado, mejores, f_era5, advertencias)
     avance("resumen", "listo", "24 horas y 12 meses")
 
     if sensor.lat is not None and (abs(sensor.lat - lat) > 0.01 or abs(sensor.lon - lon) > 0.01):
@@ -187,7 +229,7 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
                   "celda_era5": celda_era5,
                   "celda_nasa": {"lat": cabecera_nasa["lat"], "lon": cabecera_nasa["lon"],
                                  "elevacion_m": cabecera_nasa["elevacion_m"]},
-                  "offset_hora_solar_local_h": sol.offset_lst_h(lon)},
+                  "offset_hora_solar_local_h": 1 - desfase_nasa},
         "anio": anio,
         "simulado": sensor.simulado,
         "etiqueta_sensor": "SIMULADO" if sensor.simulado else "DATOS DEL USUARIO (CSV subido)",
@@ -205,10 +247,15 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
             "horas_nasa_fuera_del_anio": horas_fuera,
             "verificacion_desfase_nasa": info_desfase,
             "regla_nasa": (f"NASA POWER entrega la hora en hora solar local (time_standard="
-                           f"{cabecera_nasa['time_standard'] or 'LST'}), por franjas de 15° de longitud: "
-                           f"UTC{1 - desfase_nasa:+d}. Se suma {desfase_nasa:+d} h: {desfase_nasa - 1:+d} h a UTC "
-                           "y +1 h porque NASA etiqueta la hora por su inicio y Open-Meteo por su final. "
-                           "La regla round(lon/15) se confirma contra ERA5 probando ±1 h."),
+                           f"{cabecera_nasa['time_standard'] or 'LST'}), por franjas de 15° de longitud (se usó la "
+                           f"longitud de la celda que devolvió NASA, {dec(lon_nasa, 4)}): UTC{1 - desfase_nasa:+d}. "
+                           f"Se suma {desfase_nasa:+d} h: {desfase_nasa - 1:+d} h a UTC y +1 h porque NASA etiqueta "
+                           "la hora por su inicio y Open-Meteo por su final. La regla round(lon/15) se contrastó con "
+                           "ERA5 probando ±1 h y se quedó el corrimiento de mayor correlación: por eso este corrimiento "
+                           "se ajustó contra ERA5 y la correlación ERA5–NASA no verifica la hora de forma independiente."),
+            "era5_nasa_independiente": False,
+            "sensor_era5_independiente": not sensor.simulado,
+            "longitud_regla_nasa": lon_nasa,
             "ok": all(m == 0 for m in mejores.values()),
         },
         "factores": {
@@ -218,6 +265,8 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
         },
         "consistencia": consistencia,
         "dia_tipico": dia_tipico,
+        "cobertura": cobertura,
+        "confiabilidad": confiabilidad,
         "energia_mensual": energia,
         "sesgo_era5_pct": factores["era5"]["anual"]["sesgo_relativo_pct"],
         "sesgo_nasa_pct": factores["nasa"]["anual"]["sesgo_relativo_pct"],

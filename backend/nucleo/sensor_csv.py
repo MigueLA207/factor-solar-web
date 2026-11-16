@@ -7,6 +7,7 @@ igual que con el sensor simulado. Aquí solo se decide si el archivo se puede us
 """
 
 import io
+import re
 
 import numpy as np
 import pandas as pd
@@ -54,12 +55,21 @@ def a_numero(serie):
     return numero.astype("float64"), no_numericos
 
 
+# Solo se aceptan fechas ISO AAAA-MM-DD hh:mm[:ss[.fff]] (con "T" o espacio), con zona opcional (Z, +hh:mm, +hhmm).
+# Las fechas con barras (03/04/2024) son ambiguas (¿3 de abril o 4 de marzo?) y se rechazan.
+ISO_FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?$")
+FECHA_CON_BARRAS = re.compile(r"^\d{1,4}/\d{1,2}/\d{1,4}")
+
+
 def a_fecha_utc(serie):
-    # Acepta fechas sin zona (se asumen UTC) o con zona (se convierten a UTC).
+    # Acepta fechas ISO sin zona (se asumen UTC) o con zona (se convierten a UTC).
+    # Devuelve (fechas, filas_con_zona, filas_con_barras).
     texto = serie.str.strip()
-    con_zona = texto.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True)
-    fechas = pd.to_datetime(texto, errors="coerce", utc=True, format="mixed")
-    return fechas.dt.tz_localize(None), int(con_zona.sum())
+    con_barras = int(texto.str.match(FECHA_CON_BARRAS).sum())
+    valida = texto.str.match(ISO_FECHA)
+    con_zona = int((valida & texto.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True)).sum())
+    fechas = pd.to_datetime(texto.where(valida), errors="coerce", utc=True, format="ISO8601")
+    return fechas.dt.tz_localize(None), con_zona, con_barras
 
 
 def validar_csv(contenido, anio=None):
@@ -83,13 +93,18 @@ def validar_csv(contenido, anio=None):
         advertencias.append(f"Se ignoran las columnas que no son del formato: {', '.join(extra)}.")
     tiene_temperatura = "t_modulo" in tabla.columns
 
-    fechas, con_zona = a_fecha_utc(tabla["ts_utc"])
+    fechas, con_zona, con_barras = a_fecha_utc(tabla["ts_utc"])
+    if con_barras:
+        errores.append(f"{miles(con_barras)} fechas de ts_utc usan barras (p. ej. 03/04/2024) y son ambiguas: "
+                       "no se sabe si el día va antes o después del mes. Use el formato ISO AAAA-MM-DD hh:mm[:ss] "
+                       "(p. ej. 2024-04-03 13:00:00), en UTC o con la zona (Z o +hh:mm).")
+        raise ErrorCSV(errores[0], reporte)
     if con_zona:
         advertencias.append(f"{con_zona} fechas traían zona horaria y se convirtieron a UTC.")
     malas = int(fechas.isna().sum())
     if malas > 0.01 * len(tabla):
         errores.append(f"{malas} de {len(tabla)} fechas de ts_utc no se pudieron leer "
-                       "(use AAAA-MM-DD HH:MM:SS en UTC).")
+                       "(use el formato ISO AAAA-MM-DD hh:mm[:ss], en UTC o con zona).")
         raise ErrorCSV(errores[0], reporte)
     if malas:
         advertencias.append(f"Se descartan {malas} filas con fecha ilegible.")

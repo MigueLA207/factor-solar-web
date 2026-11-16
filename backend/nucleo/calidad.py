@@ -254,7 +254,8 @@ def limpiar_era5(era5, anio, lat, lon):
 # NASA POWER
 # ---------------------------------------------------------------------------
 
-def limpiar_nasa(nasa, lat, lon):
+def limpiar_nasa(nasa, lat, lon, desfase=None):
+    # `desfase` es el corrimiento LST -> UTC que de verdad se aplicará (el elegido); si no se da, el de la regla.
     # Reemplaza el código -999 por vacío; si se deja, entra a las sumas como si fuera medición.
     faltantes_irr = (nasa["irr_nasa"] == reglas.NASA_VALOR_FALTANTE).sum()
     faltantes_t = (nasa["t_aire_nasa"] == reglas.NASA_VALOR_FALTANTE).sum()
@@ -263,10 +264,11 @@ def limpiar_nasa(nasa, lat, lon):
     validar_tabla_horaria(limpio, "ts_lst", "irr_nasa", "NASA")
 
     entrada, salida = len(nasa), len(limpio)
-    desfase = sol.desfase_nasa_h(lon)
+    if desfase is None:
+        desfase = sol.desfase_nasa_h(lon)
     horas_utc = limpio["ts_lst"] + pd.Timedelta(hours=desfase)
     luz_de_noche = contar_luz_de_noche(horas_utc, limpio["irr_nasa"], lat, lon)
-    offset = sol.offset_lst_h(lon)
+    offset = 1 - desfase
     filas = [
         fila_calidad("NASA", "ts_lst", "unicidad", "Registros repetidos (misma hora)",
                      entrada, duplicados.sum(), "se conserva el último",

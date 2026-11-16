@@ -9,6 +9,7 @@ Almacenamiento de sensores (simulados, subidos y de ejemplo) y de análisis.
 
 import io
 import json
+import re
 import threading
 import time
 import traceback
@@ -30,7 +31,34 @@ def nuevo_id(prefijo):
     return f"{prefijo}-{uuid.uuid4().hex[:10]}"
 
 
+# Identificadores estrictos: se comprueban ANTES de tocar el disco (nada de "..", rutas ni unidades "C:x").
+RE_ID_ANALISIS = re.compile(r"^an-[0-9a-f]{10}$")
+RE_ID_SENSOR = re.compile(r"^(sim|csv)-[0-9a-f]{10}$")
+RE_SLUG_EJEMPLO = re.compile(r"^[a-z0-9_]{1,40}$")
+
+
+def id_analisis_valido(analisis_id):
+    return isinstance(analisis_id, str) and RE_ID_ANALISIS.fullmatch(analisis_id) is not None
+
+
+def slugs_de_ejemplos():
+    return {ruta.stem for ruta in reglas.EJEMPLOS.glob("*.json")}
+
+
+def id_sensor_valido(sensor_id):
+    if not isinstance(sensor_id, str):
+        return False
+    if RE_ID_SENSOR.fullmatch(sensor_id):
+        return True
+    if sensor_id.startswith("ejemplo-"):
+        slug = sensor_id.removeprefix("ejemplo-")
+        return RE_SLUG_EJEMPLO.fullmatch(slug) is not None and slug in slugs_de_ejemplos()
+    return False
+
+
 def guardar_sensor(sensor_id, crudo, meta, verdadero=None):
+    if not RE_ID_SENSOR.fullmatch(sensor_id):
+        raise ValueError(f"Identificador de sensor no válido: {sensor_id!r}")
     carpeta = reglas.SENSORES / sensor_id
     carpeta.mkdir(parents=True, exist_ok=True)
     crudo.to_pickle(carpeta / "crudo.pkl")
@@ -54,11 +82,13 @@ def _cargar_ejemplo(slug):
 
 
 def leer_meta(sensor_id):
+    if not id_sensor_valido(sensor_id):
+        return None
     if sensor_id.startswith("ejemplo-"):
         ruta = reglas.EJEMPLOS / f"{sensor_id.removeprefix('ejemplo-')}.json"
     else:
         ruta = reglas.SENSORES / sensor_id / "meta.json"
-    if not ruta.exists() or ".." in sensor_id or "/" in sensor_id or "\\" in sensor_id:
+    if not ruta.exists():
         return None
     return json.loads(ruta.read_text(encoding="utf-8"))
 
@@ -105,6 +135,7 @@ def resumen_sensor(meta):
 # ---------------------------------------------------------------------------
 
 _analisis = {}
+MAX_ANALISIS_EN_MEMORIA = 20      # los terminados que sobren se sacan de memoria (los resultados siguen en disco)
 _candado = threading.Lock()
 _ejecutor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="analisis")
 
@@ -115,6 +146,8 @@ def _etapas_iniciales():
 
 
 def _guardar_resultado(analisis_id, resultado, tablas):
+    if not id_analisis_valido(analisis_id):
+        raise ValueError(f"Identificador de análisis no válido: {analisis_id!r}")
     carpeta = reglas.ANALISIS / analisis_id
     carpeta.mkdir(parents=True, exist_ok=True)
     for nombre, tabla in tablas.items():
@@ -153,14 +186,32 @@ def _correr(analisis_id, lat, lon, anio, sensor, regimen, nombre):
         mensaje = _mensaje_de_error(error)
         traceback.print_exc()
         with _candado:
-            en_curso = [e for e in registro["etapas"] if e["estado"] == "en_curso"]
-            if en_curso:
-                en_curso[0]["estado"] = "error"
-                en_curso[0]["detalle"] = mensaje
-            registro["estado"] = "error"
-            registro["error"] = mensaje
+            _marcar_error(registro, mensaje)
     finally:
-        registro["terminado"] = time.time()
+        with _candado:
+            registro["terminado"] = time.time()
+            _expulsar_terminados()
+
+
+def _marcar_error(registro, mensaje):
+    # Siempre deja UNA etapa en error, para que la interfaz nunca muestre todo en verde junto a un error:
+    # la que estaba en curso; si la excepción cayó entre etapas, la primera pendiente; si ya estaban todas
+    # listas (p. ej. falló el guardado), la última.
+    etapas = registro["etapas"]
+    objetivo = next((e for e in etapas if e["estado"] == "en_curso"), None)         or next((e for e in etapas if e["estado"] == "pendiente"), None) or etapas[-1]
+    objetivo["estado"] = "error"
+    objetivo["detalle"] = mensaje
+    registro["estado"] = "error"
+    registro["error"] = mensaje
+    registro["resultado"] = None
+
+
+def _expulsar_terminados():
+    # Llamar con _candado tomado. Conserva en memoria los MAX_ANALISIS_EN_MEMORIA terminados más recientes
+    # (más todos los que siguen corriendo); el resto se pide al disco (listos) o deja de existir (con error).
+    terminados = sorted((r for r in _analisis.values() if "terminado" in r), key=lambda r: r["terminado"])
+    for registro in terminados[:max(0, len(terminados) - MAX_ANALISIS_EN_MEMORIA)]:
+        _analisis.pop(registro["analisis_id"], None)
 
 
 def iniciar_analisis(lat, lon, anio, sensor, regimen=None, nombre=None):
@@ -174,13 +225,18 @@ def iniciar_analisis(lat, lon, anio, sensor, regimen=None, nombre=None):
 
 
 def estado_analisis(analisis_id):
+    # Mientras corre, solo se devuelven las etapas (sin resultado); el resultado va cuando está listo.
+    if not id_analisis_valido(analisis_id):
+        return None
     with _candado:
         registro = _analisis.get(analisis_id)
         if registro is not None:
-            return json.loads(json.dumps({k: registro[k] for k in
-                                          ("analisis_id", "estado", "etapas", "resultado", "error")}))
+            salida = {"analisis_id": registro["analisis_id"], "estado": registro["estado"],
+                      "etapas": [dict(e) for e in registro["etapas"]], "error": registro["error"],
+                      "resultado": registro["resultado"] if registro["estado"] == "listo" else None}
+            return json.loads(json.dumps(salida))
     ruta = reglas.ANALISIS / analisis_id / "resultado.json"
-    if "/" in analisis_id or "\\" in analisis_id or ".." in analisis_id or not ruta.exists():
+    if not ruta.exists():
         return None
     etapas = _etapas_iniciales()
     for etapa in etapas:
@@ -190,8 +246,10 @@ def estado_analisis(analisis_id):
 
 
 def zip_analisis(analisis_id):
+    if not id_analisis_valido(analisis_id):
+        return None
     carpeta = reglas.ANALISIS / analisis_id
-    if "/" in analisis_id or "\\" in analisis_id or ".." in analisis_id or not carpeta.is_dir():
+    if not carpeta.is_dir():
         return None
     memoria = io.BytesIO()
     with zipfile.ZipFile(memoria, "w", zipfile.ZIP_DEFLATED) as archivo:

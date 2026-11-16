@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 import almacen
 from app import app
 
-cliente = TestClient(app)
+cliente = TestClient(app, base_url="http://localhost")
 
 
 def _esperar(analisis_id, limite_s=300):

@@ -8,9 +8,13 @@ Copia adaptada de ae4/pipeline/src/extraccion.py. Cambios:
 - los errores se lanzan como ErrorFuente con un mensaje claro en español (no SystemExit).
 """
 
+import calendar
 import io
 import json
 import logging
+import os
+import tempfile
+import threading
 import time
 
 import numpy as np
@@ -72,14 +76,60 @@ def descargar_con_reintentos(fuente, url, parametros, marca_valida, espera_base_
                       "Revise la conexión a internet o intente más tarde: el servicio puede estar caído.")
 
 
-def obtener_con_cache(fuente, url, parametros, ruta, marca_valida):
-    # Devuelve (texto, origen). Si la respuesta ya está en caché, no consulta la API.
-    if ruta.exists():
-        return ruta.read_text(encoding="utf-8"), "caché local"
-    texto = descargar_con_reintentos(fuente, url, parametros, marca_valida)
+_candado_llaves = threading.Lock()
+_candados_cache = {}
+
+
+def _candado_de(ruta):
+    # Un candado por archivo de caché: dos análisis simultáneos del mismo punto no descargan dos veces
+    # ni leen un archivo a medio escribir.
+    with _candado_llaves:
+        return _candados_cache.setdefault(str(ruta), threading.Lock())
+
+
+def _escribir_atomico(ruta, texto):
+    # Escribe en un archivo temporal de la misma carpeta y lo cambia de nombre: nunca queda un archivo a medias.
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    ruta.write_text(texto, encoding="utf-8")
-    return texto, "API en vivo"
+    descriptor, temporal = tempfile.mkstemp(dir=ruta.parent, prefix=ruta.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as archivo:
+            archivo.write(texto)
+        os.replace(temporal, ruta)
+    except BaseException:
+        try:
+            os.unlink(temporal)
+        except OSError:
+            pass
+        raise
+
+
+def obtener_con_cache(fuente, url, parametros, ruta, marca_valida, validador=None):
+    # Devuelve (texto, origen). Si la respuesta ya está en caché y se puede leer, no consulta la API.
+    # Un archivo de caché corrupto (truncado, ilegible) se borra y se vuelve a pedir.
+    # `validador(texto)` debe lanzar una excepción si el texto no sirve; una respuesta nueva inválida no se guarda.
+    with _candado_de(ruta):
+        if ruta.exists():
+            try:
+                texto = ruta.read_text(encoding="utf-8")
+                if validador is not None:
+                    validador(texto)
+                return texto, "caché local"
+            except Exception:  # noqa: BLE001 - cualquier fallo de lectura o validación = caché corrupta
+                log.warning("%s: caché corrupta en %s; se borra y se vuelve a pedir", fuente, ruta.name)
+                try:
+                    ruta.unlink()
+                except OSError:
+                    pass
+        texto = descargar_con_reintentos(fuente, url, parametros, marca_valida)
+        if validador is not None:
+            try:
+                validador(texto)
+            except ErrorFuente:
+                raise
+            except Exception as error:  # noqa: BLE001
+                raise ErrorFuente(f"{fuente} respondió con un formato que no se pudo leer ({type(error).__name__}).") from error
+        _escribir_atomico(ruta, texto)
+        return texto, "API en vivo"
 
 
 # ---------------------------------------------------------------------------
@@ -100,9 +150,19 @@ def parametros_openmeteo(lat, lon, anio):
     }
 
 
+def _validar_openmeteo(texto, anio):
+    # Además de leerse, el año debe estar COMPLETO: un archivo truncado se lee bien pero le faltan horas.
+    leer_celda_openmeteo(texto)
+    horas = len(leer_openmeteo(texto))
+    esperadas = 24 * (366 if calendar.isleap(anio) else 365)
+    if horas != esperadas:
+        raise ErrorFuente(f"Open-Meteo devolvió {horas} horas y se esperaban {esperadas}.")
+
+
 def obtener_openmeteo(lat, lon, anio):
     return obtener_con_cache("Open-Meteo", reglas.URL_OPENMETEO, parametros_openmeteo(lat, lon, anio),
-                             ruta_cache("openmeteo_era5", lat, lon, anio, "csv"), "latitude")
+                             ruta_cache("openmeteo_era5", lat, lon, anio, "csv"), "latitude",
+                             lambda texto: _validar_openmeteo(texto, anio))
 
 
 def leer_celda_openmeteo(texto):
@@ -142,9 +202,19 @@ def parametros_nasa(lat, lon, anio):
     }
 
 
+def _validar_nasa(texto, anio):
+    # Se pide un día extra a cada lado (año + 2 días); una copia sin esos días (la de la AE4) también sirve.
+    leer_cabecera_nasa(texto)
+    horas = len(leer_nasa(texto))
+    minimas = 24 * (366 if calendar.isleap(anio) else 365)
+    if not (minimas <= horas <= minimas + 48):
+        raise ErrorFuente(f"NASA POWER devolvió {horas} horas y se esperaban entre {minimas} y {minimas + 48}.")
+
+
 def obtener_nasa(lat, lon, anio):
     return obtener_con_cache("NASA POWER", reglas.URL_NASA, parametros_nasa(lat, lon, anio),
-                             ruta_cache("nasapower", lat, lon, anio, "json"), "ALLSKY_SFC_SW_DWN")
+                             ruta_cache("nasapower", lat, lon, anio, "json"), "ALLSKY_SFC_SW_DWN",
+                             lambda texto: _validar_nasa(texto, anio))
 
 
 def leer_cabecera_nasa(texto):

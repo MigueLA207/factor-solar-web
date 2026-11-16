@@ -115,7 +115,9 @@ def calcular_consistencia(integrado):
     if chequeo["correlacion"] is not None and chequeo["diferencia_total_pct"] is not None:
         chequeo["conclusion"] = (
             f"Correlación {dec(chequeo['correlacion'], 3)}: hora a hora ERA5 y NASA ven el mismo patrón de sol "
-            f"y nubes, así que la alineación de la hora (ts_utc) está bien. Diferencia de "
+            f"y nubes. Ojo: el corrimiento horario de NASA se eligió comparándolo con ERA5 (regla de franjas de 15° "
+            f"y, entre la regla y ±1 h, el de mayor correlación), así que este chequeo NO es independiente: solo "
+            f"descarta errores de hora mayores de 1 h. Diferencia de "
             f"{pct(chequeo['diferencia_total_pct'], 2, signo=True)} en el total: las fuentes gratuitas no coinciden en la "
             f"cantidad de energía, por eso hace falta un sensor en el sitio. Que coincidan valida el proceso, "
             f"no la exactitud de ninguna de las dos.")
@@ -142,31 +144,57 @@ def calcular_calentamiento(integrado):
 
 def calcular_dia_tipico(integrado, lon):
     # Promedio por hora local aproximada (UTC + round(lon/15)) de las horas con las tres fuentes.
-    # La etiqueta H es el promedio de (H-1, H], igual que en las fuentes.
+    # La etiqueta H de cada fuente es el promedio de (H-1, H]: el punto se ubica en el CENTRO del intervalo
+    # (H - 0,5), no en su final. `hora_local` conserva la etiqueta de fin de intervalo (0 = (23:00, 24:00]).
     completas = integrado[integrado[["irr_sitio", "irr_era5", "irr_nasa"]].notna().all(axis=1)].copy()
     completas["hora_local"] = sol.hora_local_aprox(completas["ts_utc"], lon)
     promedio = completas.groupby("hora_local")[["irr_sitio", "irr_era5", "irr_nasa"]].mean()
     promedio = promedio.reindex(range(24))
     filas = []
     for hora, fila in promedio.iterrows():
-        filas.append({"hora_local": int(hora), "sensor": _r(fila["irr_sitio"], 1),
+        fin = int(hora) if int(hora) > 0 else 24            # la etiqueta 0 es el intervalo (23:00, 24:00]
+        filas.append({"hora_local": int(hora), "hora_centro": fin - 0.5, "sensor": _r(fila["irr_sitio"], 1),
                       "era5": _r(fila["irr_era5"], 1), "nasa": _r(fila["irr_nasa"], 1)})
-    return filas
+    return sorted(filas, key=lambda f: f["hora_centro"])
+
+
+COBERTURA_MES_MINIMA_PCT = 50.0
+
+
+def calcular_cobertura(integrado):
+    # Un mes cuenta como "con datos" si el sensor cubre al menos la mitad de sus horas diurnas con ERA5.
+    posibles = integrado[integrado["es_diurna"] & integrado["irr_era5"].notna()].groupby("mes").size()
+    comparables = horas_comparables(integrado, "irr_era5").groupby("mes").size()
+    meses = []
+    for mes in range(1, 13):
+        base = int(posibles.get(mes, 0))
+        n = int(comparables.get(mes, 0))
+        pct_mes = 100 * n / base if base else 0.0
+        meses.append({"mes": mes, "etiqueta": reglas.MESES[mes - 1], "n_horas": n, "n_horas_posibles": base,
+                      "pct": round(pct_mes, 1), "con_datos": base > 0 and pct_mes >= COBERTURA_MES_MINIMA_PCT})
+    con = [m["etiqueta"] for m in meses if m["con_datos"]]
+    sin = [m["etiqueta"] for m in meses if not m["con_datos"]]
+    return {"meses": meses, "meses_con_datos": con, "meses_sin_datos": sin, "anio_completo": not sin,
+            "criterio": f"mes con datos = el sensor cubre al menos el {COBERTURA_MES_MINIMA_PCT:.0f} % de sus "
+                        "horas diurnas con ERA5"}
 
 
 def calcular_energia_mensual(integrado, factor_anual_era5):
-    # kWh/m² por mes sobre las horas del factor ERA5 (diurnas con sensor y ERA5). NASA se suma en
-    # esas mismas horas cuando tiene dato. "ERA5 × factor" usa el factor anual (así se cotizaría).
+    # kWh/m² por mes sobre las horas del factor ERA5 (diurnas con sensor y ERA5). "ERA5 × factor" usa el
+    # factor anual (así se cotizaría). NASA se suma SOLO donde NASA tiene dato (sin tratar el vacío como 0) y
+    # lleva sus propias horas (`nasa_n_horas`): no es comparable hora a hora con la columna del sensor si difieren.
     horas = horas_comparables(integrado, "irr_era5")
     filas = []
     for mes in range(1, 13):
         del_mes = horas[horas["mes"] == mes]
+        con_nasa = del_mes[del_mes["irr_nasa"].notna()]
         era5 = del_mes["irr_era5"].sum() / 1000
         filas.append({
             "mes": mes, "etiqueta": reglas.MESES[mes - 1], "n_horas": int(len(del_mes)),
             "era5_sin_corregir_kwh_m2": _r(era5, 2),
             "era5_por_factor_kwh_m2": _r(era5 * factor_anual_era5, 2) if factor_anual_era5 else None,
             "sensor_kwh_m2": _r(del_mes["irr_sitio"].sum() / 1000, 2),
-            "nasa_kwh_m2": _r(del_mes["irr_nasa"].sum() / 1000, 2),
+            "nasa_kwh_m2": _r(con_nasa["irr_nasa"].sum() / 1000, 2) if len(con_nasa) else None,
+            "nasa_n_horas": int(len(con_nasa)),
         })
     return filas

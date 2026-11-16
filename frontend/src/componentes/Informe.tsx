@@ -299,7 +299,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           id="fig-factor"
           numero={1}
           titulo="Factor mensual"
-          lectura="Cada punto es el factor de un mes: por cuánto hay que multiplicar ERA5 ese mes. Más abajo = ERA5 se equivoca más. La línea gruesa es el factor del año. Un mes sin punto no tiene datos."
+          lectura="Cada punto es el factor de un mes: por cuánto hay que multiplicar ERA5 ese mes. Por debajo de 1,00, ERA5 se pasa ese mes; por encima de 1,00, ERA5 se queda corto. La línea gruesa es el factor del año. Un mes sin punto no tiene datos."
           leyenda={[
             { nombre: 'Factor del mes', clase: 'serie-tinta', forma: 'linea-punto' },
             { nombre: `${parcial ? 'Factor de los meses con datos' : 'Factor anual'} ${num(anual.factor, 4)}`, clase: 'serie-tinta', forma: 'linea-gruesa' },

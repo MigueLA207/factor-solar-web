@@ -179,7 +179,7 @@ test('año parcial, reloj del CSV corrido y unidades dudosas se marcan junto al 
   const informe = await verInforme(page, r)
   const hallazgo = page.locator('.hallazgo__factor')
   await expect(hallazgo.locator('.hallazgo__titulo')).toContainText('(parcial)')
-  await expect(hallazgo).toContainText('Parcial: solo tiene datos suficientes en ene, feb, mar, abr, may, jun')
+  await expect(hallazgo).toContainText('Parcial: cobertura suficiente (≥ 50 % de horas diurnas) en ene, feb, mar, abr, may, jun')
   await expect(hallazgo).toContainText('No es un factor de año completo')
   await expect(hallazgo).toContainText('No confiable: posible desfase de hora en el CSV')
   await expect(hallazgo).toContainText('Revise las unidades del CSV')

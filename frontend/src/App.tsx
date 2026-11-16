@@ -116,6 +116,7 @@ export default function App() {
   }, [idCorriendo])
 
   const ocupado = ejec.fase === 'preparando' || ejec.fase === 'corriendo'
+  const [coordInvalida, setCoordInvalida] = useState(false)
   const faltaArchivo = modo === 'subir' && !subido?.sensor_id
   const faltaEjemplo = modo === 'ejemplo' && !ejemplo
   const anioFijo = (modo === 'ejemplo' && !!ejemplo) || (modo === 'subir' && !!subido)
@@ -207,7 +208,7 @@ export default function App() {
                 <span className="tramo__n cifra">1</span> Sitio
               </h2>
               <Buscador alElegir={elegirLugar} />
-              <Coordenadas punto={punto} bloqueado={ocupado} alCambiar={volarA} />
+              <Coordenadas punto={punto} bloqueado={ocupado} alCambiar={volarA} alValidar={setCoordInvalida} />
             </div>
 
             <div className="mapa">
@@ -267,13 +268,14 @@ export default function App() {
                   <span className="interruptor__nota">Andes colombianos: dos temporadas secas y dos de lluvias.</span>
                 </span>
               </label>
-              <button type="button" className="boton boton--primario" onClick={calcular} disabled={ocupado || faltaArchivo || faltaEjemplo}>
+              <button type="button" className="boton boton--primario" onClick={calcular} disabled={ocupado || faltaArchivo || faltaEjemplo || coordInvalida}>
                 {ocupado ? 'Calculando…' : 'Calcular el factor'}
               </button>
               <p className="campo__nota">
+                {coordInvalida && 'Corrige la latitud o la longitud antes de calcular. '}
                 {faltaArchivo && 'Primero sube el CSV del sensor.'}
                 {faltaEjemplo && 'Primero elige un ejemplo.'}
-                {!faltaArchivo && !faltaEjemplo && 'Consulta ERA5 y NASA POWER en vivo; la primera vez tarda unos segundos.'}
+                {!coordInvalida && !faltaArchivo && !faltaEjemplo && 'Consulta ERA5 y NASA POWER en vivo; la primera vez tarda unos segundos.'}
               </p>
             </div>
           </div>
@@ -308,7 +310,20 @@ export default function App() {
 /** Coma decimal, como en el resto de la app; se aceptan coma o punto al escribir. */
 const aTexto = (x: number) => String(x).replace('.', ',')
 
-function Coordenadas({ punto, bloqueado, alCambiar }: { punto: Punto; bloqueado: boolean; alCambiar: (p: Punto) => void }) {
+/** Solo deja escribir lo que puede ser un número decimal con signo: dígitos, un signo y una coma o punto. */
+const limpiarNumero = (texto: string) => texto.replace(/[^0-9,.\-]/g, '').slice(0, 12)
+
+/** Valida un campo de coordenada; devuelve el número o un mensaje de error en español. */
+function leerCoordenada(texto: string, nombre: string, limite: number): number | string {
+  const limpio = texto.trim()
+  if (limpio === '') return `Escribe la ${nombre}.`
+  if (!/^-?\d{1,3}([.,]\d{1,8})?$/.test(limpio)) return `La ${nombre} debe ser un número en grados decimales, p. ej. -75,3773.`
+  const valor = Number(limpio.replace(',', '.'))
+  if (!Number.isFinite(valor) || valor < -limite || valor > limite) return `La ${nombre} va de -${limite} a ${limite}.`
+  return valor
+}
+
+function Coordenadas({ punto, bloqueado, alCambiar, alValidar }: { punto: Punto; bloqueado: boolean; alCambiar: (p: Punto) => void; alValidar: (invalida: boolean) => void }) {
   const id = useId()
   const [lat, setLat] = useState(aTexto(punto.lat))
   const [lon, setLon] = useState(aTexto(punto.lon))
@@ -316,14 +331,17 @@ function Coordenadas({ punto, bloqueado, alCambiar }: { punto: Punto; bloqueado:
   useEffect(() => {
     setLat(aTexto(punto.lat))
     setLon(aTexto(punto.lon))
-  }, [punto.lat, punto.lon])
+    setError(null)
+    alValidar(false)
+  }, [punto.lat, punto.lon, alValidar])
 
   const aplicar = () => {
-    const a = Number(lat.replace(',', '.'))
-    const o = Number(lon.replace(',', '.'))
-    if (!Number.isFinite(a) || a < -90 || a > 90) return setError('La latitud va de -90 a 90.')
-    if (!Number.isFinite(o) || o < -180 || o > 180) return setError('La longitud va de -180 a 180.')
-    setError(null)
+    const a = leerCoordenada(lat, 'latitud', 90)
+    const o = leerCoordenada(lon, 'longitud', 180)
+    const mensaje = typeof a === 'string' ? a : typeof o === 'string' ? o : null
+    setError(mensaje)
+    alValidar(mensaje !== null)
+    if (mensaje !== null || typeof a === 'string' || typeof o === 'string') return
     if (a !== punto.lat || o !== punto.lon) alCambiar({ lat: a, lon: o, nombre: null })
   }
   const enter = (e: KeyboardEvent) => {
@@ -337,13 +355,13 @@ function Coordenadas({ punto, bloqueado, alCambiar }: { punto: Punto; bloqueado:
           <label className="campo__rotulo" htmlFor={`${id}-lat`}>
             Latitud
           </label>
-          <input id={`${id}-lat`} className="campo__entrada cifra" inputMode="decimal" value={lat} disabled={bloqueado} onChange={(e) => setLat(e.target.value)} onBlur={aplicar} onKeyDown={enter} />
+          <input id={`${id}-lat`} className="campo__entrada cifra" inputMode="decimal" maxLength={12} aria-invalid={error?.includes('latitud') || undefined} value={lat} disabled={bloqueado} onChange={(e) => setLat(limpiarNumero(e.target.value))} onBlur={aplicar} onKeyDown={enter} />
         </div>
         <div className="campo">
           <label className="campo__rotulo" htmlFor={`${id}-lon`}>
             Longitud
           </label>
-          <input id={`${id}-lon`} className="campo__entrada cifra" inputMode="decimal" value={lon} disabled={bloqueado} onChange={(e) => setLon(e.target.value)} onBlur={aplicar} onKeyDown={enter} />
+          <input id={`${id}-lon`} className="campo__entrada cifra" inputMode="decimal" maxLength={12} aria-invalid={error?.includes('longitud') || undefined} value={lon} disabled={bloqueado} onChange={(e) => setLon(limpiarNumero(e.target.value))} onBlur={aplicar} onKeyDown={enter} />
         </div>
       </div>
       <p className="campo__nota" role={error ? 'alert' : undefined}>

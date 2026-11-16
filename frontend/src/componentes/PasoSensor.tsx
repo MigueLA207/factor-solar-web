@@ -33,6 +33,10 @@ export function PasoSensor(p: Props) {
     p.alSubir(null)
     setErrorSubida(null)
     if (!archivo) return
+    // Revisión rápida antes de enviar: tipo y tamaño (el servidor vuelve a validar todo).
+    if (!/\.csv$/i.test(archivo.name)) return setErrorSubida('El archivo debe ser .csv.')
+    if (archivo.size === 0) return setErrorSubida('El archivo está vacío.')
+    if (archivo.size > 30 * 1024 * 1024) return setErrorSubida('El archivo pesa más de 30 MB.')
     setSubiendo(true)
     try {
       // El año lo decide el archivo (el backend toma el año con más registros); el punto va como referencia.

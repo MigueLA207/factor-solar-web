@@ -205,6 +205,11 @@ main,
   border-radius: 2px;
   transition: border-color var(--t-rapido);
 }
+.campo__entrada[aria-invalid="true"] {
+  border-color: var(--simulado);
+  outline: 1px solid var(--simulado);
+  outline-offset: -2px;
+}
 .campo__entrada:hover:not(:disabled) {
   border-color: var(--tinta);
 }

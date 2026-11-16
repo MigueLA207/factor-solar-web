@@ -73,6 +73,7 @@ export function Buscador({ alElegir }: Props) {
         id={`${id}-q`}
         className="campo__entrada"
         type="search"
+        maxLength={100}
         autoComplete="off"
         placeholder="Municipio o ciudad, p. ej. Rionegro"
         role="combobox"

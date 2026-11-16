@@ -57,16 +57,10 @@ test('el sensor de la AE4 da el factor de la AE4 (0,9103)', async ({ page }) => 
   await expect(informe).toContainText('+7,76 %')
   await expect(informe).toContainText('Correlación 0,947')
 
-  // Fig. 1: cada tallo va de la línea 1,00 al punto del mes y termina en su borde (no sigue hacia abajo).
-  const tallos = await page.$$eval('.tallo', (gs) =>
-    gs.map((g) => {
-      const l = g.querySelector('line:not(.tallo__verdadero)')
-      const c = g.querySelector('circle')!
-      return { y2: l ? Number(l.getAttribute('y2')) : null, cy: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) }
-    }),
-  )
-  expect(tallos).toHaveLength(12)
-  for (const t of tallos) if (t.y2 != null) expect(Math.abs(Math.abs(t.cy - t.y2) - t.r)).toBeLessThan(0.01)
+  // Fig. 1: un punto por mes con dato, unidos por una línea; sin tallos verticales.
+  const fig1 = page.locator('#fig-factor-t').locator('xpath=..')
+  expect(await fig1.locator('circle.punto-mes').count()).toBe(12)
+  expect(await fig1.locator('.tallo').count()).toBe(0)
 
   // Datos subidos: se rotulan como del usuario, nunca como medición real ni como SIMULADO.
   await expect(page.locator('.simulado--usuario')).toContainText('Datos del usuario')

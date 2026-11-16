@@ -149,7 +149,7 @@ test('nulos: «—» y ninguna interpretación, nunca 0', async ({ page }) => {
   // Tabla de factor mensual: marzo sin dato → «—», y el punto no se dibuja.
   const filaMarzo = page.locator('#fig-factor-t').locator('xpath=..').locator('details tbody tr').nth(2)
   await expect(filaMarzo.locator('td').first()).toHaveText('—')
-  expect(await page.locator('#fig-factor-t').locator('xpath=..').locator('.tallo circle').count()).toBe(11)
+  expect(await page.locator('#fig-factor-t').locator('xpath=..').locator('circle.punto-mes').count()).toBe(11)
   const filaEnergia = page.locator('#fig-energia-t').locator('xpath=..').locator('details tbody tr').nth(2)
   await expect(filaEnergia.locator('td').nth(3)).toHaveText('—')
   const texto = await informe.innerText()

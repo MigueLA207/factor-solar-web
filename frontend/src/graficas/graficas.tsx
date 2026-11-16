@@ -32,7 +32,22 @@ function EjeY({ ticks, y, ancho, fmt }: { ticks: number[]; y: (v: number) => num
 }
 
 /* ------------------------------------------------------------------ */
-/* Fig. Factor mensual: tallo desde 1,0 (ERA5 sin corregir) hasta el factor */
+/* Fig. Factor mensual: una línea con el factor de cada mes y el factor del año como referencia */
+
+/** Une los meses con datos; un mes sin dato corta la línea (no se inventa el valor). */
+function trazoMensual(valores: (number | null)[], cx: (i: number) => number, y: (v: number) => number) {
+  let d = ''
+  let abierto = false
+  valores.forEach((v, i) => {
+    if (!hay(v)) {
+      abierto = false
+      return
+    }
+    d += `${abierto ? 'L' : 'M'}${cx(i)},${y(v)}`
+    abierto = true
+  })
+  return d
+}
 
 export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; anual: number | null }) {
   const [ref, ancho] = useAncho<HTMLDivElement>()
@@ -43,8 +58,8 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
   const vals = datos.map((d) => d.factor).filter(hay)
   const verdaderos = datos.map((d) => d.factor_verdadero).filter(hay)
   const sinDatos = vals.length === 0
-  const yMin = Math.min(1, ...vals, ...verdaderos, ...(hay(anual) ? [anual] : [])) - 0.03
-  const yMax = Math.max(1.02, Math.max(...vals, ...verdaderos) + 0.02)
+  const yMin = Math.min(...vals, ...verdaderos, ...(hay(anual) ? [anual] : [])) - 0.02
+  const yMax = Math.max(1.0, ...vals, ...verdaderos) + 0.02
   const y = escala(yMin, yMax, ALTO - MARGEN.b, MARGEN.t)
   const { indice, setIndice, mover, salir } = useIndicePuntero(datos.length, x0, x1)
   const sel = indice != null ? datos[indice] : null
@@ -57,7 +72,7 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         width={ancho}
         height={ALTO}
         role="img"
-        aria-label={`Factor mensual de ${num(Math.min(...vals), 4)} a ${num(Math.max(...vals), 4)}; factor ${hay(anual) ? num(anual, 4) : 'sin dato'}. Use las flechas para leer cada mes.`}
+        aria-label={`Factor de cada mes, de ${num(Math.min(...vals), 4)} a ${num(Math.max(...vals), 4)}; factor del año ${hay(anual) ? num(anual, 4) : 'sin dato'}. Use las flechas para leer cada mes.`}
         tabIndex={0}
         onPointerMove={mover}
         onPointerLeave={salir}
@@ -65,29 +80,30 @@ export function GraficaFactorMensual({ datos, anual }: { datos: FilaFactor[]; an
         onBlur={salir}
       >
         <EjeY ticks={marcas(yMin, yMax, 4)} y={y} ancho={ancho} fmt={(v) => num(v, 2)} />
+        {/* 1,00 = usar ERA5 tal cual, sin corregir */}
         <line x1={x0} x2={x1} y1={y(1)} y2={y(1)} className="referencia" />
         <text x={x1} y={y(1) - 6} textAnchor="end" className="anotacion">
-          1,00 = ERA5 sin corregir
+          1,00 = sin corrección
         </text>
-        {hay(anual) && <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />}
+        {/* Factor del año: la referencia contra la que se compara cada mes */}
+        {hay(anual) && (
+          <>
+            <line x1={x0} x2={x1} y1={y(anual)} y2={y(anual)} className="referencia referencia--anual" />
+            <text x={x1} y={y(anual) + 16} textAnchor="end" className="anotacion anotacion--fuerte">
+              año {num(anual, 2)}
+            </text>
+          </>
+        )}
         {sel && indice != null && <rect x={x0 + banda * indice} y={MARGEN.t} width={banda} height={ALTO - MARGEN.t - MARGEN.b} className="foco-banda" />}
-        {datos.map((d, i) => {
-          if (!hay(d.factor)) return <g key={d.periodo} className="tallo tallo--vacio" />
-          // El tallo mide la distancia de ERA5 al sensor: va de la línea 1,00 al punto del mes y termina en él.
-          const yPunto = y(d.factor)
-          const r = indice === i ? 6 : 4.5
-          const fin = yPunto + (yPunto > y(1) ? -r : r)
-          return (
-            <g key={d.periodo} className="tallo">
-              {Math.abs(yPunto - y(1)) > r && <line x1={cx(i)} x2={cx(i)} y1={y(1)} y2={fin} />}
-              {d.factor_verdadero != null && (
-                // Muesca del factor verdadero a la derecha del tallo, sin cruzarlo ni taparse con el punto.
-                <line x1={cx(i) + 7} x2={cx(i) + 17} y1={y(d.factor_verdadero)} y2={y(d.factor_verdadero)} className="tallo__verdadero" />
-              )}
-              <circle cx={cx(i)} cy={yPunto} r={r} />
-            </g>
-          )
-        })}
+        {/* Factor verdadero de la simulación: línea tenue para comparar */}
+        {verdaderos.length > 0 && (
+          <path d={trazoMensual(datos.map((d) => d.factor_verdadero), cx, y)} className="serie-verdadero trazo trazo--discontinuo" />
+        )}
+        {/* Factor calculado de cada mes */}
+        <path d={trazoMensual(datos.map((d) => d.factor), cx, y)} className="serie-tinta trazo linea-dibuja" pathLength={1} />
+        {datos.map((d, i) =>
+          hay(d.factor) ? <circle key={d.periodo} cx={cx(i)} cy={y(d.factor)} r={indice === i ? 6 : 4} className="punto-mes" /> : null,
+        )}
         <g className="eje">
           {datos.map((d, i) => (
             <text key={d.periodo} x={cx(i)} y={ALTO - 10} textAnchor="middle">

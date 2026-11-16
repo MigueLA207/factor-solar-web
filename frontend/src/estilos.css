@@ -1458,6 +1458,12 @@ fieldset:disabled .ejemplo {
 .serie-verdadero {
   --c: var(--tinta-2);
 }
+.punto-mes {
+  fill: var(--tinta);
+  stroke: var(--papel);
+  stroke-width: 2;
+  transition: r var(--t-rapido);
+}
 .tallo__verdadero {
   stroke: var(--tinta-2);
   stroke-width: 2;

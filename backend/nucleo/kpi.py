@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas, sol
+from .formato import dec, pct
 
 COLUMNA_DE_FUENTE = {"era5": "irr_era5", "nasa": "irr_nasa"}
 ROL_DE_FUENTE = {"era5": "factor de cotización", "nasa": "chequeo cruzado"}
@@ -113,9 +114,9 @@ def calcular_consistencia(integrado):
     chequeo["filtro"] = "horas diurnas del factor (con sensor, ERA5 y NASA)"
     if chequeo["correlacion"] is not None and chequeo["diferencia_total_pct"] is not None:
         chequeo["conclusion"] = (
-            f"Correlación {chequeo['correlacion']:.3f}: hora a hora ERA5 y NASA ven el mismo patrón de sol "
+            f"Correlación {dec(chequeo['correlacion'], 3)}: hora a hora ERA5 y NASA ven el mismo patrón de sol "
             f"y nubes, así que la alineación de la hora (ts_utc) está bien. Diferencia de "
-            f"{chequeo['diferencia_total_pct']:+.1f} % en el total: las fuentes gratuitas no coinciden en la "
+            f"{pct(chequeo['diferencia_total_pct'], 2, signo=True)} en el total: las fuentes gratuitas no coinciden en la "
             f"cantidad de energía, por eso hace falta un sensor en el sitio. Que coincidan valida el proceso, "
             f"no la exactitud de ninguna de las dos.")
     sensor_era5 = comparar_dos_series(con_ambas(integrado, "irr_sitio", "irr_era5"), "irr_sitio", "irr_era5")

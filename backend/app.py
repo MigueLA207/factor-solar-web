@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 import almacen
 from nucleo import extraccion, reglas, sensor_csv, simulador
+from nucleo.formato import coord
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 VERSION = "1.0.0"
@@ -96,7 +97,7 @@ def simular_y_guardar(lat, lon, anio, semilla=2026, parametros=None, nombre=None
     sim = simulador.simular_sensor(era5, anio, lat, lon, semilla=semilla, parametros=parametros)
     sensor_id = sensor_id or almacen.nuevo_id("sim")
     crudo = sim["crudo"]
-    meta = {"sensor_id": sensor_id, "nombre": nombre or f"Sensor simulado ({lat:.4f}, {lon:.4f})",
+    meta = {"sensor_id": sensor_id, "nombre": nombre or f"Sensor simulado ({coord(lat, lon)})",
             "simulado": True, "frecuencia": "minuto", "anio": anio, "lat": lat, "lon": lon,
             "filas": len(crudo), "desde": f"{crudo['ts_utc'].min():%Y-%m-%d %H:%M}",
             "hasta": f"{crudo['ts_utc'].max():%Y-%m-%d %H:%M}", "tiene_temperatura": True,

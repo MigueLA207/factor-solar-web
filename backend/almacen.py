@@ -202,5 +202,9 @@ def zip_analisis(analisis_id):
             "factor = suma(irr_sitio) / suma(irr_fuente) en horas diurnas con ambos datos.\n"
             "ERA5 = factor de cotización; NASA POWER = chequeo cruzado.\n"
             "Si resultado.json dice \"simulado\": true, el sensor es SIMULADO: el factor valida el método,\n"
-            "no es una medición del sitio.\n"))
+            "no es una medición del sitio. Si dice \"simulado\": false, los datos los subió el usuario\n"
+            "(la app no puede comprobar si vienen de un sensor real).\n"
+            "Formato de los números: los CSV y el JSON usan PUNTO decimal y no llevan separador de miles,\n"
+            "para que Excel, Python o R los lean sin cambios. Las frases (detalles, conclusiones, avisos)\n"
+            "usan coma decimal, como la interfaz.\n"))
     return memoria.getvalue()

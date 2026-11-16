@@ -26,5 +26,8 @@ def test_reproduce_los_factores_de_la_ae4(crudos_ae4):
     assert resultado["desfase"]["mejor_desfase_h"] == {"ERA5 vs NASA": 0, "sensor vs ERA5": 0}
     assert resultado["consistencia"]["era5_vs_nasa"]["correlacion"] == 0.9467
     assert resultado["consistencia"]["era5_vs_nasa"]["diferencia_total_pct"] == 7.76
+    # La frase para personas va con coma decimal, igual que la interfaz.
+    conclusion = resultado["consistencia"]["era5_vs_nasa"]["conclusion"]
+    assert "Correlación 0,947" in conclusion and "+7,76 %" in conclusion
     fases = {f["periodo"]: f["factor"] for f in resultado["fases_bimodal"]["era5"]}
     assert fases == {"seca_1": 0.9493, "lluvias_1": 0.8789, "seca_2": 0.9283, "lluvias_2": 0.8476}

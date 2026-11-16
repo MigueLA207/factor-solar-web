@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas, sol, transformacion
+from .formato import pct
 
 
 def porcentaje(parte, total):
@@ -34,7 +35,7 @@ def fila_calidad(fuente, variable, dimension, regla, filas_antes, antes, accion,
 def aviso_filas_perdidas(fuente, filas_entrada, filas_salida):
     perdidas = filas_entrada - filas_salida
     if porcentaje(perdidas, filas_entrada) > reglas.PCT_ALERTA_FILAS_ELIMINADAS:
-        return f"{fuente}: se eliminó el {porcentaje(perdidas, filas_entrada):.1f} % de las filas."
+        return f"{fuente}: se eliminó el {pct(porcentaje(perdidas, filas_entrada))} de las filas."
     return None
 
 

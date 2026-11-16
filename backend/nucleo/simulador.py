@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas, sol, transformacion
+from .formato import dec
 
 UN_MINUTO = pd.Timedelta(minutes=1)
 
@@ -68,11 +69,11 @@ def supuestos(parametros, semilla):
     return [
         "El sensor es SIMULADO: no es una medición. Sirve para validar el método, no para cotizar.",
         "Base del sensor = ERA5 de este mismo punto interpolado a minutos, conservando el promedio horario.",
-        f"Factor verdadero por hora = {p.a:.2f} - {p.b:.2f}·(1 - kt), recortado a [{p.factor_min:.2f}, "
-        f"{p.factor_max:.2f}]; kt = GHI_ERA5 / GHI extraterrestre (supuesto: ERA5 sobrestima más con nubes).",
-        f"Ruido de nubes multiplicativo de media 1 (σ = {p.ruido_sigma}, suavizado a {p.ruido_ventana_min} min), "
+        f"Factor verdadero por hora = {dec(p.a)} − {dec(p.b)}·(1 − kt), recortado a [{dec(p.factor_min)}; "
+        f"{dec(p.factor_max)}]; kt = GHI_ERA5 / GHI extraterrestre (supuesto: ERA5 sobrestima más con nubes).",
+        f"Ruido de nubes multiplicativo de media 1 (σ = {dec(p.ruido_sigma)}, suavizado a {p.ruido_ventana_min} min), "
         f"semilla {semilla}.",
-        f"Temperatura del módulo = aire ERA5 + {p.k_calentamiento} °C por W/m² + ruido (σ = {p.ruido_t_c} °C).",
+        f"Temperatura del módulo = aire ERA5 + {dec(p.k_calentamiento)} °C por W/m² + ruido (σ = {dec(p.ruido_t_c, 1)} °C).",
         "Defectos inyectados a propósito (huecos, NaN, picos, negativos nocturnos, duplicados) para que la "
         "etapa de calidad tenga trabajo; sus cantidades se conocen.",
     ]

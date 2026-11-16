@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from . import calidad, extraccion, integracion, kpi, sol, transformacion
+from .formato import coord, dec, miles, pct
 
 ETAPAS = [
     ("E", "era5", "Extraer ERA5 (Open-Meteo, models=era5)"),
@@ -60,10 +61,6 @@ def limpiar_json(valor):
     return valor
 
 
-def miles(n):
-    return f"{n:,}".replace(",", ".")
-
-
 def _nada(*_args, **_kwargs):
     return None
 
@@ -86,7 +83,7 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     era5_crudo = extraccion.leer_openmeteo(texto_era5)
     celda_era5 = extraccion.leer_celda_openmeteo(texto_era5)
     avance("era5", "listo", f"{miles(len(era5_crudo))} horas ({origen_era5}); celda ERA5 "
-                            f"{celda_era5['lat']:.2f}, {celda_era5['lon']:.2f}")
+                            f"{dec(celda_era5['lat'], 2)}; {dec(celda_era5['lon'], 2)}")
 
     avance("nasa", "en_curso", "Consultando…")
     if "nasa" in crudos:
@@ -122,8 +119,8 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     nasa, filas_nasa, aviso_nasa = calidad.limpiar_nasa(nasa_crudo, lat, lon)
     advertencias += [a for a in (aviso_era5, aviso_nasa) if a]
     faltantes_nasa = int(filas_nasa[1]["problemas_antes"])
-    avance("calidad_fuentes", "listo", f"ERA5 {era5['irr_era5'].isna().sum()} vacíos; "
-                                       f"NASA {faltantes_nasa} valores -999")
+    avance("calidad_fuentes", "listo", f"ERA5 {miles(era5['irr_era5'].isna().sum())} vacíos; "
+                                       f"NASA {miles(faltantes_nasa)} valores -999")
 
     avance("hora_utc", "en_curso", "")
     desfase_elegido, info_desfase = transformacion.elegir_desfase_nasa(era5, nasa, lon)
@@ -148,8 +145,8 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     if sensor.verdadero is not None:
         integrado = integrado.merge(sensor.verdadero[["ts_utc", "factor_verdadero"]], on="ts_utc",
                                     how="left", validate="1:1")
-    avance("integracion", "listo", f"{miles(len(integrado))} horas; {linaje[0]['pct_coincidencia']} % sensor+ERA5, "
-                                   f"{linaje[1]['pct_coincidencia']} % +NASA")
+    avance("integracion", "listo", f"{miles(len(integrado))} horas; {pct(linaje[0]['pct_coincidencia'])} sensor+ERA5, "
+                                   f"{pct(linaje[1]['pct_coincidencia'])} +NASA")
 
     avance("desfase", "en_curso", "")
     tabla_desfase, mejores, avisos_desfase = transformacion.chequear_desfase(integrado)
@@ -164,15 +161,15 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     f_nasa = factores["nasa"]["anual"]["factor"]
     if f_era5 is None:
         raise ValueError("No hay horas diurnas con sensor y ERA5 a la vez: no se puede calcular el factor.")
-    avance("factores", "listo", f"ERA5 {f_era5:.4f} (cotización) · NASA "
-                                f"{'—' if f_nasa is None else f'{f_nasa:.4f}'} (chequeo cruzado)")
+    avance("factores", "listo", f"ERA5 {dec(f_era5, 4)} (cotización) · NASA "
+                                f"{'—' if f_nasa is None else dec(f_nasa, 4)} (chequeo cruzado)")
 
     avance("consistencia", "en_curso", "")
     consistencia = kpi.calcular_consistencia(integrado)
     calentamiento = kpi.calcular_calentamiento(integrado)
     ch = consistencia["era5_vs_nasa"]
-    avance("consistencia", "listo", f"ERA5 vs NASA: r = {ch['correlacion']}, diferencia total "
-                                    f"{ch['diferencia_total_pct']} %")
+    avance("consistencia", "listo", f"ERA5 vs NASA: r = {'—' if ch['correlacion'] is None else dec(ch['correlacion'], 3)}, diferencia total "
+                                    f"{'—' if ch['diferencia_total_pct'] is None else pct(ch['diferencia_total_pct'], 2, signo=True)}")
 
     avance("resumen", "en_curso", "")
     dia_tipico = kpi.calcular_dia_tipico(integrado, lon)
@@ -180,8 +177,8 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     avance("resumen", "listo", "24 horas y 12 meses")
 
     if sensor.lat is not None and (abs(sensor.lat - lat) > 0.01 or abs(sensor.lon - lon) > 0.01):
-        advertencias.append(f"El sensor se simuló/registró en ({sensor.lat:.4f}, {sensor.lon:.4f}) y el "
-                            f"análisis se pidió en ({lat:.4f}, {lon:.4f}).")
+        advertencias.append(f"El sensor se simuló/registró en ({coord(sensor.lat, sensor.lon)}) y el "
+                            f"análisis se pidió en ({coord(lat, lon)}).")
 
     tabla_calidad = pd.DataFrame(filas_sensor + filas_era5 + filas_nasa)
     supuestos = list(sensor.supuestos) if sensor.simulado else []
@@ -193,7 +190,7 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
                   "offset_hora_solar_local_h": sol.offset_lst_h(lon)},
         "anio": anio,
         "simulado": sensor.simulado,
-        "etiqueta_sensor": "SIMULADO" if sensor.simulado else "MEDIDO (CSV subido)",
+        "etiqueta_sensor": "SIMULADO" if sensor.simulado else "DATOS DEL USUARIO (CSV subido)",
         "supuestos": supuestos,
         "frecuencia_sensor": sensor.frecuencia,
         "fuentes": integracion.tabla_fuentes(crudo, era5_crudo, nasa_crudo, sensor.simulado,

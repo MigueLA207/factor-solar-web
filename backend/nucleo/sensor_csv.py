@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas, transformacion
+from .formato import miles, pct
 
 COBERTURA_MINIMA_PCT = 5.0       # por debajo: el factor no tendría sentido
 COBERTURA_AVISO_PCT = 80.0
@@ -123,10 +124,10 @@ def validar_csv(contenido, anio=None):
         frecuencia = "hora"
         desalineadas = int(((unicas.dt.minute != 0) | (unicas.dt.second != 0)).sum())
     else:
-        errores.append(f"La frecuencia no es por minuto ni por hora (paso típico: {paso_s:.0f} s).")
+        errores.append(f"La frecuencia no es por minuto ni por hora (paso típico: {miles(paso_s)} s).")
         raise ErrorCSV(errores[0], reporte)
     if desalineadas:
-        errores.append(f"{desalineadas} marcas no caen en el {frecuencia} exacto "
+        errores.append(f"{miles(desalineadas)} marcas no caen en el {frecuencia} exacto "
                        f"(deben terminar en :00{' :00' if frecuencia == 'hora' else ''}).")
         raise ErrorCSV(errores[0], reporte)
 
@@ -141,16 +142,16 @@ def validar_csv(contenido, anio=None):
                   else transformacion.calendario_horas(anio))
     dentro = datos["ts_utc"].between(calendario[0], calendario[-1])
     if (~dentro).sum():
-        advertencias.append(f"Se descartan {int((~dentro).sum())} filas fuera del año {anio}.")
+        advertencias.append(f"Se descartan {miles((~dentro).sum())} filas fuera del año {anio}.")
     datos = datos[dentro].sort_values("ts_utc", kind="stable").reset_index(drop=True)
 
     cobertura = 100 * datos["ts_utc"].nunique() / len(calendario)
     if cobertura < COBERTURA_MINIMA_PCT:
-        errores.append(f"El archivo cubre solo el {cobertura:.1f} % del año {anio}; "
+        errores.append(f"El archivo cubre solo el {pct(cobertura)} del año {anio}; "
                        f"se necesita al menos el {COBERTURA_MINIMA_PCT:.0f} %.")
         raise ErrorCSV(errores[0], reporte)
     if cobertura < COBERTURA_AVISO_PCT:
-        advertencias.append(f"El archivo cubre el {cobertura:.1f} % del año {anio}: el factor solo usa "
+        advertencias.append(f"El archivo cubre el {pct(cobertura)} del año {anio}: el factor solo usa "
                             "los meses con datos; los factores mensuales sin datos quedan vacíos.")
     if frecuencia == "hora":
         advertencias.append("Datos por hora: se asume que cada hora H es el promedio de (H-1, H] en UTC, "

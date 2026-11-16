@@ -6,9 +6,17 @@ const FASES: { fase: Fase; nombre: string; que: string }[] = [
   { fase: 'L', nombre: 'Cargar', que: 'guardar tablas listas para usar' },
 ]
 
+/** Por qué se detuvo: sin servidor, pedido rechazado por la API o error dentro de una etapa. */
+export interface Falla {
+  tipo: 'conexion' | 'pedido' | 'analisis'
+  mensaje: string
+}
+
 interface Props {
   etapas: Etapa[]
-  error?: string | null
+  falla?: Falla | null
+  alReintentar?: () => void
+  alRevisar?: () => void
 }
 
 function Marca({ estado }: { estado: Etapa['estado'] }) {
@@ -35,7 +43,7 @@ const NOMBRE_ESTADO: Record<Etapa['estado'], string> = {
   error: 'con error',
 }
 
-export function Progreso({ etapas, error }: Props) {
+export function Progreso({ etapas, falla, alReintentar, alRevisar }: Props) {
   const hechos = etapas.filter((e) => e.estado === 'listo').length
   const total = etapas.length
   const numero = new Map(etapas.map((e, i) => [e.paso, i + 1]))
@@ -61,6 +69,8 @@ export function Progreso({ etapas, error }: Props) {
       >
         <div className="progreso__relleno" style={{ transform: `scaleX(${hechos / total})` }} />
       </div>
+      {/* El error va antes del registro de pasos: a 390 px quedaría bajo once casillas vacías. */}
+      {falla && <Detenido falla={falla} etapa={etapas.find((e) => e.estado === 'error')} alReintentar={alReintentar} alRevisar={alRevisar} />}
       <ol className="progreso__fases">
         {FASES.map((f) => (
           <li key={f.fase} className="fase">
@@ -84,11 +94,41 @@ export function Progreso({ etapas, error }: Props) {
           </li>
         ))}
       </ol>
-      {error && (
-        <p className="aviso aviso--error" role="alert">
-          El análisis se detuvo: {error}
-        </p>
-      )}
     </section>
+  )
+}
+
+/** Bloque de error: qué pasó, qué hacer, y reintentar sin volver a llenar nada. */
+function Detenido({ falla, etapa, alReintentar, alRevisar }: { falla: Falla; etapa?: Etapa; alReintentar?: () => void; alRevisar?: () => void }) {
+  const titulo =
+    falla.tipo === 'conexion'
+      ? 'No hay conexión con el servidor'
+      : falla.tipo === 'pedido'
+        ? 'El servidor no aceptó el pedido'
+        : `El análisis se detuvo${etapa ? ` en «${etapa.titulo}»` : ''}`
+  const consejo =
+    falla.tipo === 'conexion'
+      ? 'Los datos que elegiste siguen aquí. Cuando el servidor esté abierto, reintenta.'
+      : falla.tipo === 'pedido'
+        ? 'Revisa el sitio, el año y el sensor de los pasos 1 a 3; los datos elegidos siguen aquí.'
+        : 'Si el fallo viene de Open-Meteo o NASA POWER, suele ser pasajero: espera un minuto y reintenta. Las consultas que ya respondieron quedan guardadas y no se repiten.'
+  return (
+    <div className="detenido" role="alert">
+      <h3 className="detenido__titulo">{titulo}</h3>
+      <p className="detenido__mensaje">{falla.mensaje}</p>
+      <p className="detenido__consejo">{consejo}</p>
+      <div className="detenido__acciones">
+        {alReintentar && (
+          <button type="button" className="boton boton--primario" onClick={alReintentar}>
+            Reintentar
+          </button>
+        )}
+        {alRevisar && (
+          <button type="button" className="boton boton--secundario" onClick={alRevisar}>
+            Revisar los datos
+          </button>
+        )}
+      </div>
+    </div>
   )
 }

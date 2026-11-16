@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { api } from './api/cliente'
+import { ErrorApi, MENSAJE_SIN_SERVIDOR, api } from './api/cliente'
 import type { Ejemplo, Etapa, EstadoAnalisis, Lugar, RespuestaSensor } from './api/tipos'
 import { Buscador } from './componentes/Buscador'
 import { Informe } from './componentes/Informe'
 import { Mapa, type Punto } from './componentes/Mapa'
 import { PasoSensor, type ModoSensor } from './componentes/PasoSensor'
-import { Progreso } from './componentes/Progreso'
+import { Progreso, type Falla } from './componentes/Progreso'
 import { coord } from './util/formato'
 import { prefiereMenosMovimiento } from './util/movimiento'
 
@@ -17,9 +17,15 @@ type Ejecucion =
   | { fase: 'preparando' }
   | { fase: 'corriendo'; id: string; estado: EstadoAnalisis | null }
   | { fase: 'listo'; id: string; estado: EstadoAnalisis }
-  | { fase: 'error'; mensaje: string; estado?: EstadoAnalisis | null }
+  | { fase: 'error'; falla: Falla; estado?: EstadoAnalisis | null }
 
 /** Mientras el backend no responde con sus etapas, se muestran las once en espera. */
+/** Clasifica un error de la API para el bloque "Detenido". */
+function fallaDe(e: unknown, respaldo: string): Falla {
+  if (e instanceof ErrorApi) return { tipo: e.estado === 0 ? 'conexion' : 'pedido', mensaje: e.message }
+  return { tipo: 'pedido', mensaje: e instanceof Error && e.message ? e.message : respaldo }
+}
+
 const ESPERA: Etapa[] = (
   [
     ['E', 'era5', 'Extraer ERA5 (Open-Meteo, models=era5)'],
@@ -49,17 +55,24 @@ export default function App() {
   const [subido, setSubido] = useState<RespuestaSensor | null>(null)
   const [ejec, setEjec] = useState<Ejecucion>({ fase: 'inactivo' })
   const refProgreso = useRef<HTMLDivElement>(null)
+  const refPlanilla = useRef<HTMLElement>(null)
+  // null = todavía no se sabe; false = el servidor no respondió al abrir la app.
+  const [servidor, setServidor] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    api.ejemplos().then(setEjemplos).catch(() => setEjemplos([]))
+  const conectar = useCallback(() => {
+    setServidor(null)
     api
       .salud()
       .then((s) => {
+        setServidor(true)
         setAnios({ min: s.anio_min, max: s.anio_max, defecto: s.anio_por_defecto })
-        setAnio(s.anio_por_defecto)
+        setAnio((a) => (a === ANIOS_RESPALDO.defecto ? s.anio_por_defecto : a))
+        api.ejemplos().then(setEjemplos).catch(() => setEjemplos([]))
       })
-      .catch(() => {})
+      .catch(() => setServidor(false))
   }, [])
+
+  useEffect(conectar, [conectar])
 
   const volarA = useCallback((p: Punto) => {
     setPunto(p)
@@ -85,13 +98,14 @@ export default function App() {
         const estado = await api.estadoAnalisis(idCorriendo)
         if (!vivo) return
         if (estado.estado === 'listo' && estado.resultado) setEjec({ fase: 'listo', id: idCorriendo, estado })
-        else if (estado.estado === 'error') setEjec({ fase: 'error', mensaje: estado.error ?? 'error desconocido', estado })
+        else if (estado.estado === 'error')
+          setEjec({ fase: 'error', falla: { tipo: 'analisis', mensaje: estado.error ?? 'El servidor no explicó el error.' }, estado })
         else {
           setEjec({ fase: 'corriendo', id: idCorriendo, estado })
           t = setTimeout(tick, 500)
         }
       } catch (e) {
-        if (vivo) setEjec({ fase: 'error', mensaje: e instanceof Error ? e.message : 'sin conexión con la API' })
+        if (vivo) setEjec({ fase: 'error', falla: fallaDe(e, MENSAJE_SIN_SERVIDOR) })
       }
     }
     tick()
@@ -117,7 +131,8 @@ export default function App() {
       let sitio = { lat: punto.lat, lon: punto.lon, anio, nombre: punto.nombre ?? null }
       if (modo === 'subir' && subido) {
         sensorId = subido.sensor_id
-        sitio = { ...sitio, anio: subido.resumen.anio }
+        // Sin nombre de lugar, el backend usaría el nombre del archivo como nombre del sitio.
+        sitio = { ...sitio, anio: subido.resumen.anio, nombre: punto.nombre ?? 'punto elegido en el mapa' }
       } else if (modo === 'ejemplo' && ejemplo) {
         sensorId = ejemplo.sensor_id
         sitio = { lat: ejemplo.lat, lon: ejemplo.lon, anio: ejemplo.anio, nombre: ejemplo.nombre }
@@ -131,8 +146,13 @@ export default function App() {
       })
       setEjec({ fase: 'corriendo', id: analisis_id, estado: null })
     } catch (e) {
-      setEjec({ fase: 'error', mensaje: e instanceof Error ? e.message : 'no se pudo iniciar' })
+      setEjec({ fase: 'error', falla: fallaDe(e, 'No se pudo iniciar el análisis.') })
     }
+  }
+
+  const revisar = () => {
+    refPlanilla.current?.scrollIntoView({ behavior: prefiereMenosMovimiento() ? 'auto' : 'smooth', block: 'start' })
+    refPlanilla.current?.querySelector<HTMLElement>('input, button')?.focus({ preventScroll: true })
   }
 
   const etapas =
@@ -159,8 +179,19 @@ export default function App() {
         <p className="cabecera__lema">ERA5 · NASA POWER · sensor en sitio</p>
       </header>
 
+      {servidor === false && (
+        <div className="sin-servidor" role="alert">
+          <p>
+            <strong>La app no encuentra su servidor.</strong> {MENSAJE_SIN_SERVIDOR}
+          </p>
+          <button type="button" className="boton boton--secundario boton--claro" onClick={conectar}>
+            Reintentar la conexión
+          </button>
+        </div>
+      )}
+
       <main id="principal">
-        <section className="planilla" aria-labelledby="titulo-planilla">
+        <section className="planilla" aria-labelledby="titulo-planilla" ref={refPlanilla}>
           <div className="planilla__intro">
             <h1 id="titulo-planilla" className="planilla__titulo">
               ¿Cuánto se equivoca ERA5 donde va tu sensor?
@@ -248,7 +279,12 @@ export default function App() {
 
         <div ref={refProgreso} className="ancla">
           {ejec.fase !== 'inactivo' && (
-            <Progreso etapas={etapas.length ? etapas : ESPERA} error={ejec.fase === 'error' ? ejec.mensaje : null} />
+            <Progreso
+              etapas={etapas.length ? etapas : ESPERA}
+              falla={ejec.fase === 'error' ? ejec.falla : null}
+              alReintentar={ejec.fase === 'error' ? calcular : undefined}
+              alRevisar={ejec.fase === 'error' ? revisar : undefined}
+            />
           )}
         </div>
 

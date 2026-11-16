@@ -39,11 +39,13 @@ ts_utc,irr_sitio,t_modulo
 2024-01-01 00:01:00,0.0,18.3
 ```
 
-- `ts_utc`: fecha y hora en **UTC**, por minuto o por hora (`AAAA-MM-DD HH:MM:SS`).
+- `ts_utc`: fecha y hora en **UTC**, por minuto o por hora, en formato ISO `AAAA-MM-DD hh:mm[:ss]` (con `T`
+  o espacio; zona opcional `Z` o `+hh:mm`). Las fechas con barras (`03/04/2024`) se rechazan: son ambiguas.
 - `irr_sitio`: irradiancia en W/m². `t_modulo` (°C) es opcional.
 - Separador coma o punto y coma; decimales con punto (o con coma si el separador es punto y coma).
   El año sale del archivo.
-- Cobertura mínima: 5 % del año; con menos del 80 % la app avisa.
+- Cobertura mínima: 5 % del año; con menos del 80 % la app avisa y marca el factor como **parcial**
+  (solo cuenta los meses con datos). Tamaño máximo: 30 MB.
 - Las tablas del ZIP usan punto decimal (para Excel, Python o R); la pantalla usa coma decimal.
 
 Prueba rápida: `datos/prueba/sensor_rionegro_2024_CRUDO.csv.gz` es el sensor de la AE4
@@ -58,6 +60,11 @@ el factor ERA5 **0,9103**, igual que el pipeline de la AE4.
 - Un CSV subido se rotula **"datos del usuario"**: la app no puede comprobar que venga de un sensor
   real. El sensor de prueba de la AE4 también es simulado, aunque la app lo trate como datos subidos.
 - NASA POWER se usa solo como chequeo cruzado; el factor de cotización es el de ERA5.
+- El corrimiento de hora de NASA se ajusta contra ERA5 (regla de franjas de 15° y ±1 h): por eso la
+  coincidencia ERA5–NASA **no** prueba la hora de forma independiente. El único chequeo independiente
+  es sensor–ERA5, y solo con datos subidos (un sensor simulado sale de ERA5 y da 0 h por construcción).
+- En datos subidos, la app marca "no confiable" si el reloj del CSV parece desfasado y avisa si las
+  unidades parecen estar mal (¿kW/m² o Wh?).
 
 ## Para desarrollo
 

@@ -63,7 +63,7 @@ ERA5 × factor, sensor). Descarga de tablas.
 - [x] W1 — Backend: núcleo adaptado + API + caché + simulador + ejemplos + tests (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
 - [x] W2 — Frontend v1: mapa, flujo, progreso por fases, resultados (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
 - [x] W3 — QA y correcciones: Fig. 1, formato decimal, estados de error, CSV de la AE4 de punta a punta (0,9103), instantáneas fuera de git, `iniciar.bat`, README, capturas y detector (delegado; ruta: escritor delegado, 2+ archivos no triviales). Evidencia abajo.
-- [ ] W4 — Revisión independiente (corrección de cálculos, honestidad "simulado", UX) y correcciones.
+- [ ] W4 — Revisión independiente (corrección de cálculos, honestidad "simulado", UX) y correcciones. Ronda 1 del juicio aplicada (20 hallazgos, ver abajo); falta la revisión de la ronda 2.
 - [ ] W5 — Informe de la mañana. (`iniciar.bat` y README se hicieron en W3.)
 
 ## Progreso
@@ -114,6 +114,103 @@ ERA5 × factor, sensor). Descarga de tablas.
     `/` → 200 text/html "Factor Solar". Segunda corrida: "Entorno listo / Dependencias al día / Interfaz al día"
     y arranca en segundos. Servidor detenido después.
 
+- 16/11/2026 (noche) — W4, ronda 1 del juicio aplicada (20 hallazgos). Evidencia (`<comando>: <resultado>`):
+  - `cd backend && python -m pytest -q -p no:cacheprovider tests`: 130 passed (37 de W3 + 93 nuevas/parametrizadas:
+    `test_nasa_regla`, `test_robustez`, `test_confianza`, `test_transformacion` corregido). `test_cruce_ae4.py` sigue
+    en verde: ERA5 **0,9103**, NASA **0,9809**, desfase NASA +6 h, 4 846 horas.
+  - `cd frontend && npm run build`: `tsc -b` sin errores, `vite build` ok.
+  - `QA_MODO=real npx playwright test -c qa/playwright.config.ts` (backend real en :8000, Vite en :5175): 12 de 12
+    pasan: `capturas` (2), `e2e-real` (3, incluida la subida del CSV de la AE4 → **0,9103** / «el factor sería 0,9809» /
+    «+7,76 %» / «Correlación 0,947») y `honestidad.spec.ts` (7, nuevas: factor > 1, simulado, datos subidos, nulos,
+    año parcial + reloj corrido + unidades, anexos plegados a 390 px, contraste).
+  - Capturas principales regeneradas en `qa/capturas/` (`real-01` … `real-10` a 1440 y 390; `honestidad-*` nuevas).
+  - Detector Impeccable (`detect --viewport 1440x900` y `390x844`): página viva 0 hallazgos; instantáneas del informe
+    simulado, del CSV de la AE4 y del error: solo `cramped-padding` en `mapa__lienzo` (Leaflet, ya justificado en W2).
+    En el camino salió un `tight-leading` real en el hallazgo (el título ahora comparte fila con el sello y se partía en
+    dos líneas con interlineado 1,2): corregido con interlineado 1,3–1,4.
+
+## Decisiones W4 (ronda 1 del juicio)
+- **Regla de hora de NASA (hallazgo 4).** Se aplica a `cabecera_nasa["lon"]` (longitud de la celda que devuelve NASA).
+  Medido sobre las 8 ubicaciones reales en caché (y 3 más), corrimiento que de verdad maximiza la correlación con ERA5
+  contra lo que da cada regla (`desfase = 1 − offset`):
+  | sitio | lon | mejor corr. | `round(lon/15)` | `int(lon/15)` (trunca) |
+  |---|---|---|---|---|
+  | Turín | 7,69 | +1 | +0 (falla) | +1 |
+  | Tokio | 139,69 | −8 | −8 | −8 |
+  | Sídney | 151,21 | −9 | −9 | −9 |
+  | Hawái | −155,58 | +11 | +11 | +11 |
+  | Delhi | 77,21 | −4 | −4 | −4 |
+  | Santiago | −70,67 | +6 | +6 | +5 (falla) |
+  | Berna | 7,44 | +1 | +1 | +1 |
+  | Rionegro | −75,38 | +6 | +6 | +6 |
+  | Bogotá | −74,07 | +6 | +6 | +5 (falla) |
+  | Barranquilla | −74,80 | +6 | +6 | +5 (falla) |
+  | Madrid | −3,70 | +1 | +1 | +1 |
+  Resultado: **`round(lon/15)` acierta 10 de 11 (solo falla Turín, borde de franja); `int(lon/15)` acierta 8 de 11 y
+  falla en las tres longitudes oeste cercanas a −4,7…−5 franjas** (el truncado va hacia 0). Se queda `round`
+  (redondeo «medio hacia arriba», determinista) con la salvaguarda empírica ±1 h y su advertencia. Turín es el único
+  caso en que la salvaguarda cambia el resultado (+1 en vez de +0); queda como prueba. Hipótesis NO verificada: NASA
+  podría ajustar la longitud a su malla de 0,625° antes de redondear (7,69 y 7,44 caen ambos en la celda de 7,5° y
+  ambos dan offset 0); con una sola observación de borde no se codificó. Nota: la longitud que NASA devuelve en la
+  cabecera coincide con la pedida (redondeada a 4 decimales) en las 11 respuestas guardadas, así que hoy la regla da
+  lo mismo con una u otra; se usa la de la cabecera porque es la que NASA dice haber usado. El corrimiento ELEGIDO
+  (no el de la regla) se pasa a `calidad.limpiar_nasa` (la fila de calidad y el conteo de «luz de noche» lo usan).
+- **Honestidad de la hora (hallazgo 2).** El corrimiento de NASA se elige contra ERA5 (regla y ±1 h por correlación), así
+  que ERA5–NASA no es independiente y solo descarta errores > 1 h. La UI ya no dice «la alineación de la hora está
+  bien»; muestra junto a la Fig. 4 la tabla de las correlaciones de los tres candidatos ANTES de elegir. Solo
+  sensor–ERA5 es un chequeo independiente, y solo con datos subidos.
+- **Sensor simulado (hallazgos 1 y 3).** Sello SIMULADO dentro del bloque del factor, fórmula «energía del sensor
+  simulado = ERA5 × f», frase «En esta simulación ERA5 se pasa X % (porque la simulación lo supone)»; Fig. 4 sensor–ERA5
+  «no informativo» (no se dibuja); el bloque del factor verdadero dice que comprueba coherencia interna; se oculta «con
+  NASA el factor sería…». Con datos subidos: «energía del sensor = ERA5 × f» (nunca «energía real»).
+- **Factor > 1 (13).** Todo texto del factor ramifica por el signo de `sesgo_relativo_pct` (`leerSesgo`): «se pasa /
+  sobrestima» o «se queda corto / subestima»; la regla dibuja el tramo rayado a continuación de la barra de ERA5 hasta la
+  del sensor cuando falta energía. Arreglado de paso: los ejes de la regla y de energía mensual/día típico no llegaban al
+  máximo de los datos (barras que se salían del eje) → `marcasQueCubren`.
+- **Nulos (14).** `num()`/`pct()` devuelven «—» para null/NaN; ningún `?? 0`; sin interpretación cuando falta el dato; los
+  meses sin dato no se dibujan en Fig. 1/2.
+- **Año parcial (16).** `cobertura`: un mes cuenta si el sensor cubre ≥ 50 % de sus horas diurnas con ERA5. Con menos de 12
+  meses, el hallazgo dice «(parcial)» y nombra los meses con datos y sin datos; «factor anual» solo en años completos.
+- **Reloj y unidades (17, 18).** Solo datos subidos: mejor desfase sensor–ERA5 ≠ 0 → «No confiable: posible desfase de
+  hora en el CSV» junto al número. Aviso de unidades si el factor anual < 0,5 o > 1,5, o si la mediana de los máximos
+  diarios del sensor < 50 W/m². Son avisos orientativos (umbrales míos, no de la guía).
+- **Energía mensual de NASA (15).** Se suma solo donde NASA tiene dato y lleva sus propias horas (`nasa_n_horas`); es null
+  si no hay ninguna.
+- **Día típico (11).** Se elige dibujar en el centro del intervalo (H − 0,5) y no rotular el eje con un aviso: es más
+  limpio y exacto (el dato de la etiqueta 7 es el promedio de 6:00–7:00 y va a las 6:30). El backend manda `hora_centro`
+  (ordenado) y conserva `hora_local` (etiqueta de fin de intervalo).
+- **Fechas del CSV (10).** Solo ISO `AAAA-MM-DD hh:mm[:ss]` (T o espacio; zona opcional). Las fechas con barras se rechazan
+  con un mensaje que explica la ambigüedad día/mes.
+- **Caché (5).** Escritura atómica (archivo temporal + `os.replace`), validación al leer (se parsea y se exige el año
+  completo: 8 760/8 784 horas ERA5; NASA entre año y año + 2 días) y borrado + nueva consulta si está corrupta; una
+  respuesta nueva inválida no se guarda; un candado por archivo evita descargas dobles.
+- **IDs (6).** `^an-[0-9a-f]{10}$` (análisis), `^(sim|csv)-[0-9a-f]{10}$` o `ejemplo-<slug conocido>` (sensores),
+  comprobados antes de tocar el disco en `leer_meta`, `cargar_sensor`, `guardar_sensor`, `estado_analisis` y
+  `zip_analisis`.
+- **Parámetros del simulador (7).** Modelos pydantic con rangos (a, b ∈ [0, 2]; factor_min/máx ∈ [0,1; 2] con
+  min ≤ máx; σ ∈ [0; 0,5]; ventana 1–60 min; k ∈ [0; 0,1]; ruido T ∈ [0; 5]; cada defecto 0–10 000; claves
+  desconocidas prohibidas; año 2015–2025; semilla 0–2³²−1; nombre ≤ 120). Errores 422 en español; cualquier excepción no
+  prevista → 500 en español sin traza (la traza queda en el registro del servidor).
+- **Exposición local (8).** `TrustedHostMiddleware` (localhost, 127.0.0.1); en POST/PUT/PATCH/DELETE con `Origin`, solo se
+  acepta el mismo origen (esquema y host:puerto) o los orígenes de desarrollo de Vite (localhost/127.0.0.1, puertos
+  51xx y 4173); sin `Origin` (curl, pruebas) pasa. Límite de subida 30 MB (el CSV de la AE4 descomprimido pesa ~16 MB);
+  el manejador de subida es `def` (corre en el hilo de FastAPI, no bloquea). Las pruebas usan `base_url=http://localhost`.
+- **Memoria y errores (9).** `_analisis` guarda como máximo 20 terminados (los resultados siguen en disco; uno con error
+  sale de memoria al expulsarse). Si una excepción cae entre etapas, se marca como error la que estaba en curso, o la
+  primera pendiente, o la última si ya estaban todas listas: la UI nunca muestra todo en verde con un error. El sondeo
+  devuelve `resultado` solo cuando el análisis está listo.
+- **Contraste (12).** Medido de forma estática, el detalle de cada paso ya daba 7,8:1 (`--tinta-2` sobre papel); el único
+  cuadro con poco contraste era el fundido de opacidad de 260 ms (`aparecer`). Se cambió por un recorte (`clip-path`) y una
+  prueba E2E mide el contraste y que no haya animación de opacidad.
+- **Otros (19, 20).** «horas con sol» → «horas diurnas» en toda la UI; el selector de año dice cuál queda fijo por el sensor
+  y que 2025 es el último año completo; a ≤ 560 px los anexos de calidad y fuentes arrancan plegados (`<details>`); se
+  quitaron las dos sombras suaves restantes (buscador y lectura de las gráficas): quedan con el borde de 1 px. Se
+  evitó el `border-left` grueso en las alertas del hallazgo (prohibido por la skill) usando borde de 1 px completo.
+- **Prueba vacua (tests).** `test_chequeo_de_desfase_detecta_una_hora_corrida` aceptaba cualquier valor ≠ 0; ahora exige el
+  corrimiento exacto (+1, −2, +3) y que ERA5–NASA quede en 0, y comprueba que sin corrimiento no hay avisos.
+- **Pendiente / límites.** Las pruebas que usan respuestas reales de Turín, Sídney, Tokio, Hawái, etc. leen
+  `datos/cache/` (no versionada): si falta, se saltan. No se probó una subida de >30 MB real (se prueba el 413 con 30 MB + 1 B).
+
 ## Decisiones W3
 - **Fig. 1.** La geometría ya terminaba el tallo en el punto (medido en el DOM); lo que se leía como "tallo hasta
   abajo" era la marca del factor verdadero cruzando tallo y punto. Ahora el tallo para en el borde del punto y la
@@ -136,7 +233,8 @@ ERA5 × factor, sensor). Descarga de tablas.
   la historia del commit 6c4855a (sin push; reescribir la historia no se hizo).
 - **Sensor de prueba**: se versiona solo `datos/prueba/sensor_rionegro_2024_CRUDO.csv.gz` (2,8 MB; idéntico,
   SHA-256, a `datos/referencia/ae4_sensor_rionegro_2024_CRUDO.csv.gz`); el `.csv` sin comprimir está ignorado.
-- **Lanzador**: `iniciar.bat` usa `py -3` o `python`, sello `backend\.venvequisitos-instalados.txt` para
+- **Lanzador**: `iniciar.bat` usa `py -3` o `python`, sello `backend\.venv
+equisitos-instalados.txt` para
   reinstalar solo si cambia `requirements.txt`, reconstruye si `src`, `index.html` o `package.json` son más
   nuevos que `dist\index.html`, avisa si el puerto 8000 está ocupado, sirve en 127.0.0.1 y abre el navegador
   cuando `/api/salud` responde. `FACTOR_SOLAR_SIN_NAVEGADOR=1` es para pruebas.
@@ -185,13 +283,14 @@ ERA5 × factor, sensor). Descarga de tablas.
   backend que traen punto decimal ("Correlación 0.947") conviven con la coma de la UI.
 
 ## Decisiones W1
-- **Desfase NASA → UTC por sitio.** NASA POWER horario entrega `time_standard: LST`; según su documentación la
+- **Desfase NASA → UTC por sitio** (matizado en W4: la regla usa la longitud de la celda que devuelve NASA y el chequeo ERA5–NASA NO es independiente, ver «Decisiones W4»). NASA POWER horario entrega `time_standard: LST`; según su documentación la
   hora solar local sale de franjas de 15° de longitud → offset = round(lon/15) y desfase = 1 − offset
   (+1 h porque NASA etiqueta la hora por su inicio y Open-Meteo por su final). Rionegro → +6 (el valor fijo de
   la AE4). Medido contra ERA5 en 2023: Tokio −8, Delhi −4, Berna +1, Hawái +11, Sídney −9 coinciden con la
   regla; **Turín (lon 7,69) no**: la regla da +0 y la correlación es máxima con +1 (borde de franja). Por eso
   el núcleo prueba la regla y sus vecinos ±1 h contra ERA5 y usa el de mayor correlación; si difiere de la
-  regla, lo informa como advertencia. El chequeo de desfase sensor vs ERA5 sigue siendo independiente.
+  regla, lo informa como advertencia. El chequeo de desfase sensor vs ERA5 es independiente solo con datos
+  subidos (con sensor simulado da 0 h por construcción).
 - NASA se pide con un día extra a cada lado (`start=(año-1)1231`, `end=(año+1)0101`) para cubrir el año UTC
   completo en cualquier longitud; las horas fuera del año se descartan (se informan en `desfase`).
 - **Simulador** (`backend/nucleo/simulador.py`, supuesto declarado): factor horario = a − b·(1 − kt),

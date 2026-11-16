@@ -9,3 +9,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 frontend/dist/
+# Instantaneas HTML de QA: contienen rutas locales del equipo; se regeneran con las pruebas
+qa/instantaneas/
+frontend/test-results/
+frontend/playwright-report/
+# Copia sin comprimir del sensor de prueba (se versiona solo el .csv.gz)
+datos/prueba/*.csv

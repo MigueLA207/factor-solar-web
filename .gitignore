@@ -1,0 +1,11 @@
+# Respuestas de las API (se regeneran solas)
+datos/cache/
+# Sensores y analisis de esta instalacion
+datos/sensores/
+datos/analisis/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+frontend/dist/

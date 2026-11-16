@@ -1,0 +1,58 @@
+{
+  "sensor_id": "ejemplo-madrid",
+  "nombre": "Madrid (ES)",
+  "simulado": true,
+  "frecuencia": "minuto",
+  "anio": 2024,
+  "lat": 40.4168,
+  "lon": -3.7038,
+  "filas": 526594,
+  "desde": "2024-01-01 00:00",
+  "hasta": "2024-12-31 23:59",
+  "tiene_temperatura": true,
+  "factor_verdadero_anual": 0.913,
+  "defectos_inyectados": {
+    "minutos_faltantes": 566,
+    "timestamps_duplicados": 120,
+    "nan_irradiancia": 300,
+    "nan_temperatura": 200,
+    "picos_irradiancia": 25,
+    "negativos_nocturnos": 5000,
+    "temperatura_fuera_rango": 15
+  },
+  "descripcion_defectos": "40 huecos de 1-5 min, 3 de 10-40 min y un corte de 6 h desde 2024-03-07 09:51 UTC",
+  "supuestos": [
+    "El sensor es SIMULADO: no es una medición. Sirve para validar el método, no para cotizar.",
+    "Base del sensor = ERA5 de este mismo punto interpolado a minutos, conservando el promedio horario.",
+    "Factor verdadero por hora = 1.00 - 0.25·(1 - kt), recortado a [0.70, 1.00]; kt = GHI_ERA5 / GHI extraterrestre (supuesto: ERA5 sobrestima más con nubes).",
+    "Ruido de nubes multiplicativo de media 1 (σ = 0.12, suavizado a 7 min), semilla 2026.",
+    "Temperatura del módulo = aire ERA5 + 0.03 °C por W/m² + ruido (σ = 0.3 °C).",
+    "Defectos inyectados a propósito (huecos, NaN, picos, negativos nocturnos, duplicados) para que la etapa de calidad tenga trabajo; sus cantidades se conocen."
+  ],
+  "parametros": {
+    "a": 1.0,
+    "b": 0.25,
+    "factor_min": 0.7,
+    "factor_max": 1.0,
+    "ruido_sigma": 0.12,
+    "ruido_ventana_min": 7,
+    "k_calentamiento": 0.03,
+    "ruido_t_c": 0.3,
+    "defectos": {
+      "huecos_cortos": 40,
+      "huecos_medios": 3,
+      "corte_largo_min": 360,
+      "nan_irradiancia": 300,
+      "nan_temperatura": 200,
+      "picos_irradiancia": 25,
+      "negativos_nocturnos": 5000,
+      "temperatura_fuera_rango": 15,
+      "timestamps_duplicados": 120
+    }
+  },
+  "semilla": 2026,
+  "slug": "madrid",
+  "lugar": "Madrid, España",
+  "clima": "mediterráneo continental, estaciones marcadas",
+  "descripcion": "Latitud media del hemisferio norte: días largos en verano y cortos en invierno."
+}

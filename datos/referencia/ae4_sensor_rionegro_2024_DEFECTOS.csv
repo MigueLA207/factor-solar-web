@@ -1,0 +1,8 @@
+defecto,cantidad,descripcion
+minutos_faltantes,566,"40 huecos de 1-5 min, 3 de 10-40 min y un corte de 6 h desde 2024-03-07 09:51 UTC"
+timestamps_duplicados,120,fila reenviada idéntica
+nan_irradiancia,300,irr_sitio vacío
+nan_temperatura,200,t_modulo vacío
+picos_irradiancia,25,irr_sitio entre 2000 y 3000 W/m²
+negativos_nocturnos,5000,irr_sitio entre -5 y -1 W/m² de noche
+temperatura_fuera_rango,15,t_modulo < -15 °C o > 90 °C

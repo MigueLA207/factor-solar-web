@@ -164,7 +164,12 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
             f"ERA5 es mayor con {desfase_elegido:+d} h (punto cerca del borde de una franja de 15°); "
             f"se usó {desfase_elegido:+d} h.")
         # El conteo de luz de noche y la fila de calidad deben usar el corrimiento ELEGIDO, no el de la regla.
-        nasa, filas_nasa, _ = calidad.limpiar_nasa(nasa_crudo, lat, lon, desfase_elegido)
+        # El aviso de NASA calculado con la regla se reemplaza por el del corrimiento elegido.
+        if aviso_nasa in advertencias:
+            advertencias.remove(aviso_nasa)
+        nasa, filas_nasa, aviso_nasa = calidad.limpiar_nasa(nasa_crudo, lat, lon, desfase_elegido)
+        if aviso_nasa:
+            advertencias.append(aviso_nasa)
     nasa_utc, desfase_nasa, horas_fuera = transformacion.pasar_nasa_a_utc(nasa, lon_nasa, anio, desfase_elegido)
     filas_nasa[-1]["regla"] = f"Hora en hora solar local (UTC{1 - desfase_elegido:+d}), no en UTC"
     filas_nasa[-1]["accion"] = f"se corre {desfase_elegido:+d} h a UTC (etiqueta al final de la hora)"
@@ -213,8 +218,10 @@ def ejecutar_analisis(lat, lon, anio, sensor, regimen=None, avance=_nada, crudos
     cobertura = kpi.calcular_cobertura(integrado)
     if not cobertura["anio_completo"]:
         advertencias.append(
-            "Año parcial: el factor anual solo usa los meses con datos (" + ", ".join(cobertura["meses_con_datos"])
-            + "); sin datos suficientes: " + ", ".join(cobertura["meses_sin_datos"]) + ". No es un factor de año completo.")
+            "Año parcial: meses con cobertura suficiente (al menos 50 % de sus horas diurnas): "
+            + ", ".join(cobertura["meses_con_datos"]) + "; con poca o ninguna cobertura: "
+            + ", ".join(cobertura["meses_sin_datos"]) + ". El factor usa todas las horas comparables, también las "
+            "pocas de esos meses. No es un factor de año completo.")
     confiabilidad = _confiabilidad(sensor, integrado, mejores, f_era5, advertencias)
     avance("resumen", "listo", "24 horas y 12 meses")
 

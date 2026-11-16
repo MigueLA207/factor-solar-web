@@ -191,7 +191,7 @@ export function Informe({ r, urlDescarga, esDemo }: Props) {
           )}
           {parcial && r.cobertura && (
             <p className="hallazgo__alerta">
-              <strong>Parcial:</strong> solo tiene datos suficientes {r.cobertura.meses_con_datos.length ? `en ${r.cobertura.meses_con_datos.join(', ')}` : 'ningún mes'}; sin datos en {r.cobertura.meses_sin_datos.join(', ')}. No es un factor de año completo.
+              <strong>Parcial:</strong> cobertura suficiente (≥ 50 % de horas diurnas) {r.cobertura.meses_con_datos.length ? `en ${r.cobertura.meses_con_datos.join(', ')}` : 'en ningún mes'}; poca o ninguna en {r.cobertura.meses_sin_datos.join(', ')}. El factor usa todas las horas comparables. No es un factor de año completo.
             </p>
           )}
           {conf?.unidades_sospechosas && (

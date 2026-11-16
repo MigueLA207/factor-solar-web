@@ -1,0 +1,2285 @@
+<!DOCTYPE html><html lang="es"><head>
+    <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Calcula el factor que corrige la radiación solar de ERA5 con un sensor en sitio, para cualquier punto del mapa.">
+    <meta name="theme-color" content="#f5f4f0">
+    <title>Factor Solar</title>
+  <style type="text/css" data-vite-dev-id="C:/Users/maria/Documents/Universidad/factor-solar-web/frontend/node_modules/@fontsource-variable/public-sans/index.css">/* public-sans-vietnamese-wght-normal */
+@font-face {
+  font-family: 'Public Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(/node_modules/@fontsource-variable/public-sans/files/public-sans-vietnamese-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+
+/* public-sans-latin-ext-wght-normal */
+@font-face {
+  font-family: 'Public Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(/node_modules/@fontsource-variable/public-sans/files/public-sans-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* public-sans-latin-wght-normal */
+@font-face {
+  font-family: 'Public Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(/node_modules/@fontsource-variable/public-sans/files/public-sans-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}</style><style type="text/css" data-vite-dev-id="C:/Users/maria/Documents/Universidad/factor-solar-web/frontend/node_modules/@fontsource-variable/source-serif-4/opsz.css">/* source-serif-4-cyrillic-ext-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-cyrillic-ext-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;
+}
+
+/* source-serif-4-cyrillic-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-cyrillic-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
+
+/* source-serif-4-greek-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-greek-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF;
+}
+
+/* source-serif-4-vietnamese-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-vietnamese-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+
+/* source-serif-4-latin-ext-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-ext-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* source-serif-4-latin-opsz-normal */
+@font-face {
+  font-family: 'Source Serif 4 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url(/node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-opsz-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}</style><style type="text/css" data-vite-dev-id="C:/Users/maria/Documents/Universidad/factor-solar-web/frontend/node_modules/leaflet/dist/leaflet.css">/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(/node_modules/leaflet/dist/images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(/node_modules/leaflet/dist/images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(/node_modules/leaflet/dist/images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+</style><style type="text/css" data-vite-dev-id="C:/Users/maria/Documents/Universidad/factor-solar-web/frontend/src/estilos.css">/* Factor Solar — informe técnico sobre papel.
+   Papel y tinta neutros; color solo con significado: ámbar = ERA5 / energía solar,
+   azul tinta = sensor (la medición), verde = NASA POWER, rojo = SIMULADO / error.
+   Reglas finas en vez de cajas. Ver odd/tasks/factor-solar-web.md, "Decisiones de diseño". */
+
+:root {
+  --papel: #f4f4f0;
+  --papel-claro: #fbfbf9;
+  --papel-2: #e9e9e3;
+  --tinta: #1d2433;
+  --tinta-2: #444c5c;
+  --tinta-3: #5f6674;
+  --regla: #cfcfc7;
+  --gris-dato: #b4b8c0;
+
+  --sol: #c8650c;
+  --era5: #c8650c;
+  --sensor: #2b4ba0;
+  --nasa: #23896a;
+  --simulado: #b42318;
+  --simulado-fondo: #f8e9e6;
+  --foco: #2b4ba0;
+
+  --serif: 'Source Serif 4 Variable', 'Source Serif Pro', Georgia, serif;
+  --sans: 'Public Sans Variable', 'Public Sans', system-ui, sans-serif;
+
+  --ancho: 1360px;
+  --canal: clamp(16px, 3vw, 40px);
+  --t-rapido: 180ms;
+  --salida: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color-scheme: light;
+  accent-color: var(--tinta);
+  scrollbar-color: var(--tinta-3) var(--papel-2);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-feature-settings: 'kern' 1;
+  text-rendering: optimizeLegibility;
+  caret-color: var(--sensor);
+}
+
+::selection {
+  background: #f1d6bb;
+  color: var(--tinta);
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--tinta);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.92em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.cifra {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.saltar {
+  position: absolute;
+  left: var(--canal);
+  top: -60px;
+  z-index: 2000;
+  background: var(--tinta);
+  color: var(--papel);
+  padding: 10px 14px;
+}
+.saltar:focus {
+  top: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Marco */
+
+.franja-demo,
+.cabecera,
+main,
+.pie {
+  max-width: var(--ancho);
+  margin-inline: auto;
+  padding-inline: var(--canal);
+}
+
+.franja-demo {
+  max-width: none;
+  background: var(--tinta);
+  color: var(--papel);
+  font-size: 0.8125rem;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  padding-inline: max(var(--canal), calc((100% - var(--ancho)) / 2 + var(--canal)));
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--tinta);
+}
+.cabecera__marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cabecera__nombre {
+  font-family: var(--serif);
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.cabecera__lema {
+  font-size: 0.875rem;
+  color: var(--tinta-2);
+}
+
+.pie {
+  margin-top: 96px;
+  padding-top: 20px;
+  padding-bottom: 40px;
+  border-top: 1px solid var(--tinta);
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+  display: grid;
+  gap: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Controles comunes */
+
+.campo {
+  display: grid;
+  gap: 4px;
+}
+.campo__rotulo {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tinta);
+}
+.campo__entrada {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--tinta);
+  background: var(--papel-claro);
+  border: 1px solid var(--tinta-3);
+  border-radius: 2px;
+  transition: border-color var(--t-rapido);
+}
+.campo__entrada:hover:not(:disabled) {
+  border-color: var(--tinta);
+}
+.campo__entrada:focus-visible {
+  outline-offset: 0;
+  border-color: var(--foco);
+}
+.campo__entrada:disabled {
+  color: var(--tinta-3);
+  background: var(--papel-2);
+}
+.campo__entrada::placeholder {
+  color: var(--tinta-3);
+}
+.campo__nota {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+  min-height: 1.25em;
+  margin-top: 6px;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition:
+    background-color var(--t-rapido),
+    color var(--t-rapido),
+    transform 80ms;
+}
+.boton:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(1px);
+}
+.boton--primario {
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 1rem;
+  color: var(--papel);
+  background: var(--tinta);
+  border: 1px solid var(--tinta);
+}
+.boton--primario:hover:not(:disabled) {
+  background: #313b52;
+}
+.boton--primario:disabled {
+  background: var(--tinta-3);
+  border-color: var(--tinta-3);
+  cursor: not-allowed;
+}
+.boton--secundario {
+  color: var(--tinta);
+  background: transparent;
+  border: 1px solid var(--tinta);
+}
+.boton--secundario:hover {
+  background: var(--papel-2);
+}
+.boton--secundario[aria-disabled='true'] {
+  color: var(--tinta-3);
+  border-color: var(--regla);
+  cursor: not-allowed;
+  background: transparent;
+}
+.boton--archivo {
+  position: relative;
+}
+.boton--archivo input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.boton--archivo:focus-within {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.aviso {
+  font-size: 0.875rem;
+  padding: 10px 12px;
+  border: 1px solid var(--regla);
+  color: var(--tinta-2);
+  margin-top: 10px;
+}
+.aviso--error {
+  border-color: var(--simulado);
+  color: #8e1b12;
+  background: var(--simulado-fondo);
+}
+.aviso--demo {
+  margin-top: 40px;
+}
+
+.nota {
+  font-size: 0.875rem;
+  color: var(--tinta-3);
+  max-width: 62ch;
+  margin-top: 12px;
+}
+
+.seccion__titulo {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.bloque__titulo {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* ------------------------------------------------------------------ */
+/* Planilla: sitio, año, sensor */
+
+.planilla__intro {
+  padding-top: 44px;
+  padding-bottom: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 48px;
+  align-items: end;
+}
+.planilla__titulo {
+  font-family: var(--serif);
+  font-size: 2.75rem;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+.planilla__entrada {
+  font-size: 1.0625rem;
+  color: var(--tinta-2);
+  max-width: 46ch;
+}
+
+.planilla__rejilla {
+  display: grid;
+  grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr);
+  grid-template-areas:
+    'sitio mapa'
+    'anio mapa'
+    'sensor mapa'
+    'accion mapa';
+  grid-template-rows: auto auto auto 1fr;
+  column-gap: 48px;
+}
+.tramo--sitio {
+  grid-area: sitio;
+}
+.tramo--anio {
+  grid-area: anio;
+}
+.tramo--sensor {
+  grid-area: sensor;
+}
+.tramo--accion {
+  grid-area: accion;
+  border-top: 1px solid var(--tinta);
+  padding-top: 20px;
+}
+.mapa {
+  grid-area: mapa;
+}
+
+.tramo {
+  border-top: 1px solid var(--tinta);
+  padding-top: 14px;
+  padding-bottom: 22px;
+}
+.tramo__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.tramo__n {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border: 1px solid var(--tinta);
+}
+
+.buscador {
+  position: relative;
+}
+.buscador__caja {
+  position: relative;
+  margin-top: 4px;
+}
+.buscador__lista {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--papel-claro);
+  border: 1px solid var(--tinta);
+  box-shadow: 0 8px 20px rgb(29 36 51 / 0.14);
+  max-height: 300px;
+  overflow: auto;
+}
+.buscador__opcion {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--papel-2);
+}
+.buscador__opcion[aria-selected='true'] {
+  background: var(--papel-2);
+}
+.buscador__region {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+}
+
+.coordenadas {
+  margin-top: 6px;
+}
+.coordenadas__campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.mapa {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--tinta);
+  padding-top: 14px;
+}
+.mapa__lienzo {
+  flex: 1;
+  min-height: 560px;
+  border: 1px solid var(--tinta);
+  background: var(--papel-2);
+}
+.mapa__lectura {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.875rem;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--regla);
+  color: var(--tinta-2);
+}
+.mapa__nombre {
+  color: var(--tinta);
+  font-weight: 600;
+}
+
+.leaflet-container {
+  font-family: var(--sans);
+  cursor: crosshair;
+}
+.leaflet-container .leaflet-control-attribution {
+  font-size: 11px;
+  background: rgb(251 251 249 / 0.92);
+  color: var(--tinta-2);
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--tinta);
+}
+.leaflet-bar {
+  border: 1px solid var(--tinta) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.leaflet-bar a {
+  border-radius: 0 !important;
+  color: var(--tinta) !important;
+  background: var(--papel-claro) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 30px !important;
+}
+.reticula {
+  background: none;
+  border: 0;
+}
+
+.segmentos {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+.segmentos__op {
+  position: relative;
+}
+.segmentos__op + .segmentos__op {
+  margin-left: -1px;
+}
+.segmentos__op input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.segmentos__op span {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  font-size: 0.9375rem;
+  border: 1px solid var(--tinta);
+  background: var(--papel-claro);
+  transition: background-color var(--t-rapido), color var(--t-rapido);
+}
+.segmentos__op input:hover + span {
+  background: var(--papel-2);
+}
+.segmentos__op input:checked + span {
+  background: var(--tinta);
+  color: var(--papel);
+  font-weight: 600;
+}
+.segmentos__op input:focus-visible + span {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+.segmentos__op input:disabled + span {
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+.sensor {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.sensor__opcion {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 10px;
+  padding-top: 0;
+  padding-bottom: 14px;
+}
+.sensor__opcion + .sensor__opcion {
+  padding-top: 14px;
+  border-top: 1px solid var(--regla);
+}
+.sensor__radio {
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  cursor: pointer;
+}
+.sensor__titulo {
+  font-weight: 600;
+  cursor: pointer;
+}
+.sensor__nota {
+  grid-column: 2;
+  font-size: 0.875rem;
+  color: var(--tinta-3);
+  max-width: 54ch;
+}
+.sensor__detalle,
+.sensor__ejemplos {
+  grid-column: 2;
+  margin-top: 12px;
+}
+.sensor__ejemplos {
+  border-top: 1px solid var(--regla);
+}
+.ejemplo {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  text-align: left;
+  padding: 10px 10px 10px 30px;
+  font: inherit;
+  color: var(--tinta);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--regla);
+  cursor: pointer;
+  position: relative;
+  transition: background-color var(--t-rapido);
+}
+.ejemplo::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 15px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--tinta);
+}
+.ejemplo:hover {
+  background: var(--papel-2);
+}
+.ejemplo[aria-pressed='true'] {
+  background: var(--papel-2);
+}
+.ejemplo[aria-pressed='true']::before {
+  background: var(--tinta);
+  box-shadow: inset 0 0 0 2px var(--papel-2);
+}
+.ejemplo__nombre {
+  font-weight: 600;
+}
+.ejemplo__desc {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+}
+.subida__datos {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+.subida__datos dt {
+  color: var(--tinta-3);
+  font-size: 0.8125rem;
+}
+.subida__datos dd {
+  font-weight: 600;
+}
+fieldset:disabled .sensor__titulo,
+fieldset:disabled .ejemplo {
+  color: var(--tinta-3);
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
+/* Progreso del pipeline */
+
+.ancla {
+  scroll-margin-top: 16px;
+}
+.progreso {
+  margin-top: 64px;
+  border-top: 2px solid var(--tinta);
+  padding-top: 18px;
+}
+.progreso__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 24px;
+}
+.progreso__cuenta {
+  font-size: 0.9375rem;
+  color: var(--tinta-2);
+}
+.progreso__ahora {
+  color: var(--tinta);
+}
+.progreso__regla {
+  height: 3px;
+  background: var(--papel-2);
+  margin-top: 16px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.progreso__relleno {
+  height: 100%;
+  background: var(--tinta);
+  transform-origin: left;
+  transition: transform 450ms var(--salida);
+}
+.progreso__fases {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+.fase__nombre {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.fase__que {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+  margin-bottom: 10px;
+}
+.paso {
+  display: grid;
+  grid-template-columns: 16px 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-top: 1px solid var(--regla);
+  color: var(--tinta-3);
+  transition: color var(--t-rapido);
+}
+.paso[data-estado='en_curso'],
+.paso[data-estado='listo'] {
+  color: var(--tinta);
+}
+.paso[data-estado='error'] {
+  color: var(--simulado);
+}
+.marca {
+  margin-top: 3px;
+}
+.marca--en_curso {
+  color: var(--sol);
+}
+.paso__num {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding-top: 1px;
+}
+.paso__texto {
+  display: grid;
+  gap: 2px;
+}
+.paso__titulo {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.paso[data-estado='en_curso'] .paso__titulo {
+  font-weight: 650;
+}
+.paso__detalle {
+  font-size: 0.8125rem;
+  color: var(--tinta-2);
+  animation: aparecer 260ms var(--salida);
+}
+
+/* ------------------------------------------------------------------ */
+/* Informe */
+
+.informe {
+  margin-top: 72px;
+  border-top: 2px solid var(--tinta);
+  padding-top: 18px;
+}
+.informe__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px 32px;
+  padding-bottom: 20px;
+}
+.informe__meta {
+  font-size: 0.9375rem;
+  color: var(--tinta-2);
+  margin-top: 4px;
+}
+.informe__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.interruptor input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.simulado {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  border: 2px solid var(--simulado);
+  background: var(--simulado-fondo);
+  margin-bottom: 8px;
+}
+.simulado__sello {
+  display: grid;
+  place-items: center;
+  padding: 16px 22px;
+  background: var(--simulado);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.125rem;
+  letter-spacing: 0.14em;
+}
+.simulado__texto {
+  padding: 14px 18px;
+  color: #6f170f;
+}
+.simulado__frase {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  max-width: 90ch;
+}
+
+.hallazgo {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px;
+  padding-top: 32px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--tinta);
+}
+.hallazgo__titulo {
+  font-family: var(--serif);
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+.hallazgo__numero {
+  font-family: var(--serif);
+  font-size: 6rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  font-variation-settings: 'opsz' 60;
+}
+.hallazgo__formula {
+  font-size: 1.25rem;
+  color: var(--tinta);
+}
+.hallazgo__formula .cifra {
+  font-weight: 700;
+}
+.hallazgo__frase {
+  font-size: 1.125rem;
+  margin-top: 14px;
+  max-width: 34ch;
+}
+.hallazgo__frase strong {
+  font-weight: 700;
+}
+.hallazgo__regla {
+  align-self: center;
+}
+
+.regla svg,
+.escala-sim svg,
+.barra-int svg,
+.grafica svg {
+  display: block;
+  overflow: visible;
+}
+.regla__linea {
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+.regla__linea--fina {
+  stroke: var(--tinta-3);
+}
+.regla__num {
+  font-size: 12px;
+  fill: var(--tinta-2);
+  font-variant-numeric: tabular-nums;
+}
+.regla__unidad {
+  font-size: 12px;
+  fill: var(--tinta-3);
+}
+.regla__rotulo {
+  font-size: 14px;
+  fill: var(--tinta);
+}
+.regla__valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.regla__raya {
+  stroke: var(--era5);
+  stroke-width: 1.5;
+}
+.regla__sobra line {
+  stroke: var(--tinta);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.regla__barra {
+  transform-box: fill-box;
+  transform-origin: left;
+  animation: crecer-x 700ms var(--salida) both;
+}
+.regla__exceso {
+  animation: aparecer 400ms 500ms both;
+}
+
+.validacion,
+.bimodal {
+  padding-top: 24px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--tinta);
+}
+.validacion__cifras {
+  font-size: 1.0625rem;
+  margin-top: 8px;
+}
+.escala-sim {
+  max-width: 520px;
+  margin-top: 6px;
+}
+.sim__verdadero {
+  stroke: var(--tinta);
+  stroke-width: 2;
+}
+.sim__recuperado {
+  fill: var(--sensor);
+  stroke: var(--papel);
+  stroke-width: 2;
+}
+.bimodal .tabla-envoltura {
+  max-width: 720px;
+  margin-top: 12px;
+}
+
+/* Figuras */
+.figuras {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px 56px;
+  padding-top: 32px;
+}
+.figura {
+  border-top: 1px solid var(--tinta);
+  padding-top: 14px;
+  min-width: 0;
+}
+.figura__titulo {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.figura__num {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--tinta-3);
+  margin-right: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.figura__lectura {
+  font-size: 0.875rem;
+  color: var(--tinta-2);
+  margin-top: 4px;
+  max-width: 64ch;
+}
+.figura__tabla {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+.figura__tabla summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--tinta-2);
+}
+.figura__tabla summary:hover {
+  color: var(--tinta);
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  color: var(--tinta-2);
+}
+.leyenda__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grafica {
+  position: relative;
+  margin-top: 10px;
+}
+.grafica svg:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 4px;
+}
+.eje text {
+  font-size: 12px;
+  fill: var(--tinta-3);
+  font-variant-numeric: tabular-nums;
+}
+.eje__guia {
+  stroke: var(--papel-2);
+  stroke-width: 1;
+}
+.eje__base {
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+.referencia {
+  stroke: var(--tinta-3);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.referencia--anual {
+  stroke: var(--tinta);
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+}
+.anotacion {
+  font-size: 12px;
+  fill: var(--tinta-2);
+}
+.anotacion--fuerte {
+  fill: var(--tinta);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.foco-banda {
+  fill: var(--tinta);
+  opacity: 0.05;
+}
+.cruz {
+  stroke: var(--tinta-3);
+  stroke-width: 1;
+}
+.tallo line {
+  stroke: var(--tinta);
+  stroke-width: 2;
+}
+.tallo circle {
+  fill: var(--tinta);
+  stroke: var(--papel);
+  stroke-width: 2;
+  transition: r var(--t-rapido);
+}
+
+.serie-era5 {
+  --c: var(--era5);
+}
+.serie-sensor {
+  --c: var(--sensor);
+}
+.serie-nasa {
+  --c: var(--nasa);
+}
+.relleno {
+  fill: var(--c);
+}
+.contorno {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 1.5;
+}
+.trazo {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.trazo--discontinuo {
+  stroke-dasharray: 5 4;
+}
+.anillo {
+  stroke: var(--papel);
+  stroke-width: 2;
+}
+.linea-dibuja {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: dibujar 1100ms var(--salida) 150ms forwards;
+}
+.barra-crece {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: crecer-y 650ms var(--salida) both;
+}
+.desfase {
+  fill: var(--gris-dato);
+}
+.desfase--max {
+  fill: var(--tinta);
+}
+.desfase--sel {
+  fill: var(--tinta-2);
+}
+
+.lectura {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 1px;
+  min-width: 150px;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--papel-claro);
+  border: 1px solid var(--tinta);
+  box-shadow: 0 6px 16px rgb(29 36 51 / 0.12);
+  pointer-events: none;
+}
+.lectura strong {
+  font-weight: 650;
+  text-transform: capitalize;
+}
+.lectura__suave {
+  color: var(--tinta-3);
+}
+
+/* Anexos */
+.anexos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px 56px;
+  margin-top: 56px;
+}
+.anexo {
+  border-top: 1px solid var(--tinta);
+  padding-top: 14px;
+  min-width: 0;
+}
+.anexo--ancho {
+  grid-column: 1 / -1;
+}
+.datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 32px;
+  margin-top: 14px;
+}
+.datos--fila {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+.datos dt {
+  font-size: 0.8125rem;
+  color: var(--tinta-2);
+}
+.datos dd.cifra {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.datos__nota {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+  margin-top: 4px;
+}
+.int__unidas {
+  fill: var(--tinta);
+}
+.int__sin {
+  fill: var(--gris-dato);
+}
+
+.tabla-envoltura {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 8px 16px 8px 0;
+  border-bottom: 1px solid var(--regla);
+  vertical-align: top;
+}
+.tabla thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tinta-2);
+  border-bottom: 1px solid var(--tinta);
+}
+.tabla tbody th {
+  font-weight: 600;
+}
+.tabla td.cifra {
+  white-space: nowrap;
+}
+.tabla__explica {
+  color: var(--tinta-3);
+  min-width: 24ch;
+}
+
+.linaje {
+  counter-reset: l;
+  display: grid;
+  margin-top: 10px;
+  font-size: 0.9375rem;
+}
+.linaje li {
+  counter-increment: l;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--regla);
+}
+.linaje li::before {
+  content: counter(l);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--tinta-3);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Movimiento: solo el que cuenta algo. Nada en bucle. */
+
+@keyframes dibujar {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes crecer-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes crecer-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .linea-dibuja {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pantallas angostas */
+
+@media (max-width: 960px) {
+  .planilla__intro {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .planilla__rejilla {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'sitio' 'mapa' 'anio' 'sensor' 'accion';
+    grid-template-rows: none;
+  }
+  .mapa {
+    border-top: 0;
+    padding-top: 0;
+    margin-bottom: 24px;
+  }
+  .mapa__lienzo {
+    min-height: 340px;
+  }
+  .progreso__fases,
+  .hallazgo,
+  .figuras,
+  .anexos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .progreso__fases {
+    gap: 24px;
+  }
+  .hallazgo {
+    gap: 28px;
+  }
+}
+
+@media (max-width: 560px) {
+  .planilla__intro {
+    padding-top: 28px;
+    padding-bottom: 20px;
+  }
+  .planilla__titulo {
+    font-size: 2rem;
+  }
+  .cabecera__lema {
+    display: none;
+  }
+  .segmentos {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .segmentos__op:nth-child(4) {
+    margin-left: 0;
+  }
+  .segmentos__op:nth-child(n + 4) span {
+    margin-top: -1px;
+  }
+  .hallazgo__numero {
+    font-size: 4.5rem;
+  }
+  .simulado {
+    grid-template-columns: 1fr;
+  }
+  .simulado__sello {
+    justify-items: start;
+    padding: 10px 16px;
+  }
+  .datos,
+  .datos--fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .datos--fila {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .datos dd.cifra {
+    font-size: 1.375rem;
+  }
+  .boton--primario {
+    width: 100%;
+  }
+  .mapa__lectura {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+/* Teselas de OpenStreetMap en grises: el mapa es soporte, no protagonista. */
+.leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.82) brightness(1.1);
+}
+.anotacion--sensor {
+  fill: var(--sensor);
+  font-weight: 650;
+}
+.anotacion,
+.regla__rotulo {
+  paint-order: stroke;
+  stroke: var(--papel);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.serie-tinta {
+  --c: var(--tinta);
+}
+.serie-verdadero {
+  --c: var(--tinta-2);
+}
+.tallo__verdadero {
+  stroke: var(--tinta-2);
+  stroke-width: 2;
+}
+.regla__corte {
+  stroke: var(--tinta);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.informe__celdas {
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+  margin-top: 2px;
+}
+.simulado__subtitulo {
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin-top: 10px;
+}
+.simulado__supuestos {
+  list-style: decimal;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.875rem;
+  max-width: 100ch;
+}
+.validacion {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: center;
+}
+.escala-sim {
+  max-width: none;
+}
+.advertencias {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.tabla__sub {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--tinta-3);
+}
+.tabla .num {
+  text-align: right;
+}
+.tabla th,
+.tabla td {
+  padding-inline: 12px;
+}
+.tabla th:first-child,
+.tabla td:first-child {
+  padding-left: 0;
+}
+.tabla th:last-child,
+.tabla td:last-child {
+  padding-right: 0;
+}
+.tabla--calidad td:first-child {
+  white-space: nowrap;
+  color: var(--tinta-2);
+}
+@media (max-width: 960px) {
+  .validacion {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}
+.tramo--accion .interruptor {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.tramo--accion .interruptor input {
+  margin-top: 3px;
+}
+.interruptor__nota {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--tinta-3);
+}
+.segmentos {
+  grid-template-columns: repeat(6, 1fr);
+  row-gap: 0;
+}
+.segmentos__op:nth-child(6n + 1) {
+  margin-left: 0;
+}
+.segmentos__op:nth-child(n + 7) span {
+  margin-top: -1px;
+}
+
+/* Años en rejilla: el contenedor pone el borde superior e izquierdo, cada celda el resto. */
+.segmentos {
+  border-top: 1px solid var(--tinta);
+  border-left: 1px solid var(--tinta);
+}
+.segmentos .segmentos__op,
+.segmentos .segmentos__op + .segmentos__op {
+  margin-left: 0;
+}
+.segmentos .segmentos__op span {
+  margin-top: 0;
+  border: 0;
+  border-right: 1px solid var(--tinta);
+  border-bottom: 1px solid var(--tinta);
+}
+@media (max-width: 560px) {
+  .segmentos {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.leaflet-container .leaflet-control-attribution {
+  padding: 3px 8px;
+}
+p,
+li,
+dd {
+  text-wrap: pretty;
+}
+.segmentos__op input:checked:disabled + span {
+  color: var(--papel);
+  background: var(--tinta-2);
+}
+</style></head>
+  <body>
+    <div id="root"><a class="saltar" href="#principal">Saltar al contenido</a><header class="cabecera"><div class="cabecera__marca"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="6" fill="var(--sol)"></circle><path d="M3 16h7M22 16h7M16 3v7M16 22v7" stroke="currentColor" stroke-width="2"></path></svg><p class="cabecera__nombre">Factor Solar</p></div><p class="cabecera__lema">ERA5 · NASA POWER · sensor en sitio</p></header><main id="principal"><section class="planilla" aria-labelledby="titulo-planilla"><div class="planilla__intro"><h1 id="titulo-planilla" class="planilla__titulo">¿Cuánto se equivoca ERA5 donde va tu sensor?</h1><p class="planilla__entrada">Elige el punto y el año, aporta los datos del sensor y el pipeline calcula el factor que convierte la radiación de ERA5 en energía real.</p></div><div class="planilla__rejilla"><div class="tramo tramo--sitio"><h2 class="tramo__titulo"><span class="tramo__n cifra">1</span> Sitio</h2><div class="buscador"><label class="campo__rotulo" for="_r_1_-q">Buscar un lugar</label><div class="buscador__caja"><input id="_r_1_-q" class="campo__entrada" autocomplete="off" placeholder="Municipio o ciudad, p. ej. Rionegro" role="combobox" aria-expanded="false" aria-controls="_r_1_-lista" aria-autocomplete="list" type="search" value="" style=""><ul id="_r_1_-lista" role="listbox" class="buscador__lista" hidden=""></ul></div><p class="campo__nota" aria-live="polite"></p></div><div class="coordenadas"><div class="coordenadas__campos"><div class="campo"><label class="campo__rotulo" for="_r_2_-lat">Latitud</label><input id="_r_2_-lat" class="campo__entrada cifra" inputmode="decimal" value="6,147148" style=""></div><div class="campo"><label class="campo__rotulo" for="_r_2_-lon">Longitud</label><input id="_r_2_-lon" class="campo__entrada cifra" inputmode="decimal" value="-75,377316" style=""></div></div><p class="campo__nota">O haz clic en el mapa. Grados decimales; el oeste es negativo.</p></div></div><div class="mapa"><div class="mapa__lienzo leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" tabindex="0" style="position: relative;"><div class="leaflet-pane leaflet-map-pane" style="transform: translate3d(0px, 241px, 0px);"><div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer " style="z-index: 1; opacity: 1;"><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 16; transform: translate3d(-2505px, -3286px, 0px) scale(8);"></div><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 19; transform: translate3d(-135px, -178px, 0px) scale(1);"><img alt="" src="https://tile.openstreetmap.org/10/297/494.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 524px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/493.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 268px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/494.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 524px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/494.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 524px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/495.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 780px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/493.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 268px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/493.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 268px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/495.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 780px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/495.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 780px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/492.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 12px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/494.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 524px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/494.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 524px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/496.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 1036px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/492.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 12px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/492.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 12px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/493.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 268px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/493.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 268px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/495.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 780px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/495.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 780px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/496.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 1036px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/496.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 1036px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/492.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 12px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/492.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 12px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/496.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 1036px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/496.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 1036px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/491.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, -244px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/297/497.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(342px, 1292px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/491.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, -244px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/491.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, -244px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/296/497.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(86px, 1292px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/298/497.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(598px, 1292px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/491.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, -244px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/491.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, -244px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/295/497.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(-170px, 1292px, 0px); opacity: 1;"><img alt="" src="https://tile.openstreetmap.org/10/299/497.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(854px, 1292px, 0px); opacity: 1;"></div></div></div><div class="leaflet-pane leaflet-overlay-pane"></div><div class="leaflet-pane leaflet-shadow-pane"></div><div class="leaflet-pane leaflet-marker-pane"><div class="leaflet-marker-icon reticula leaflet-zoom-animated leaflet-interactive" style="margin-left: -22px; margin-top: -22px; width: 44px; height: 44px; transform: translate3d(359px, 469px, 0px); z-index: 469;"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+    <circle cx="22" cy="22" r="9" fill="none" stroke="#1d2433" stroke-width="1.5"></circle>
+    <circle cx="22" cy="22" r="2.5" fill="#c8650c"></circle>
+    <path d="M22 2v11M22 31v11M2 22h11M31 22h11" stroke="#1d2433" stroke-width="1.5"></path>
+  </svg></div></div><div class="leaflet-pane leaflet-tooltip-pane"></div><div class="leaflet-pane leaflet-popup-pane"></div><div class="leaflet-proxy leaflet-zoom-animated" style="transform: translate3d(76183.5px, 126587px, 0px) scale(512);"></div></div><div class="leaflet-control-container"><div class="leaflet-top leaflet-left"><div class="leaflet-control-zoom leaflet-bar leaflet-control"><a class="leaflet-control-zoom-in" href="#" title="Zoom in" role="button" aria-label="Zoom in" aria-disabled="false"><span aria-hidden="true">+</span></a><a class="leaflet-control-zoom-out" href="#" title="Zoom out" role="button" aria-label="Zoom out" aria-disabled="false"><span aria-hidden="true">−</span></a></div></div><div class="leaflet-top leaflet-right"></div><div class="leaflet-bottom leaflet-left"></div><div class="leaflet-bottom leaflet-right"><div class="leaflet-control-attribution leaflet-control"><a href="https://leafletjs.com">Leaflet</a> <span aria-hidden="true">|</span> © <a href="https://www.openstreetmap.org/copyright">colaboradores de OpenStreetMap</a></div></div></div></div><p class="mapa__lectura cifra" aria-live="polite"><span class="mapa__nombre">Rionegro (Antioquia, CO)</span><span>6,147° N · 75,377° O</span></p></div><div class="tramo tramo--anio"><h2 class="tramo__titulo" id="_r_0_-t"><span class="tramo__n cifra">2</span> Año</h2><div class="segmentos" role="radiogroup" aria-labelledby="_r_0_-t"><label class="segmentos__op"><input type="radio" value="2025" name="_r_0_-anio" disabled="" style=""><span class="cifra">2025</span></label><label class="segmentos__op"><input type="radio" value="2024" checked="" name="_r_0_-anio" disabled="" style=""><span class="cifra">2024</span></label><label class="segmentos__op"><input type="radio" value="2023" name="_r_0_-anio" disabled="" style=""><span class="cifra">2023</span></label><label class="segmentos__op"><input type="radio" value="2022" name="_r_0_-anio" disabled="" style=""><span class="cifra">2022</span></label><label class="segmentos__op"><input type="radio" value="2021" name="_r_0_-anio" disabled="" style=""><span class="cifra">2021</span></label><label class="segmentos__op"><input type="radio" value="2020" name="_r_0_-anio" disabled="" style=""><span class="cifra">2020</span></label><label class="segmentos__op"><input type="radio" value="2019" name="_r_0_-anio" disabled="" style=""><span class="cifra">2019</span></label><label class="segmentos__op"><input type="radio" value="2018" name="_r_0_-anio" disabled="" style=""><span class="cifra">2018</span></label><label class="segmentos__op"><input type="radio" value="2017" name="_r_0_-anio" disabled="" style=""><span class="cifra">2017</span></label><label class="segmentos__op"><input type="radio" value="2016" name="_r_0_-anio" disabled="" style=""><span class="cifra">2016</span></label><label class="segmentos__op"><input type="radio" value="2015" name="_r_0_-anio" disabled="" style=""><span class="cifra">2015</span></label></div><p class="campo__nota">El año lo fija el sensor elegido.</p></div><div class="tramo tramo--sensor"><h2 class="tramo__titulo"><span class="tramo__n cifra">3</span> Sensor</h2><fieldset class="sensor"><legend class="visualmente-oculto">Datos del sensor</legend><div class="sensor__opcion" data-activa="false"><input id="_r_3_-simular" class="sensor__radio" type="radio" value="simular" checked="" name="_r_3_-modo" style=""><label for="_r_3_-simular" class="sensor__titulo">Simular un sensor para este punto</label><p class="sensor__nota">Se fabrica a partir del clima de este punto. Útil para probar el método; el resultado sale marcado como SIMULADO.</p></div><div class="sensor__opcion" data-activa="false"><input id="_r_3_-subir" class="sensor__radio" type="radio" value="subir" name="_r_3_-modo" style=""><label for="_r_3_-subir" class="sensor__titulo">Subir el CSV de mi sensor</label><p class="sensor__nota">Columnas ts_utc, irr_sitio y, si la tienes, t_modulo. Por minuto o por hora, en UTC.</p></div><div class="sensor__opcion" data-activa="true"><input id="_r_3_-ejemplo" class="sensor__radio" type="radio" value="ejemplo" name="_r_3_-modo" style=""><label for="_r_3_-ejemplo" class="sensor__titulo">Usar un ejemplo listo</label><p class="sensor__nota">Sensores simulados de climas distintos, ya preparados. El punto y el año pasan a ser los del ejemplo.</p><ul class="sensor__ejemplos" role="list"><li><button type="button" class="ejemplo" aria-pressed="false"><span class="ejemplo__nombre">Barranquilla (Atlántico, CO)</span><span class="ejemplo__desc">Costa Caribe, mucho sol en la temporada seca (dic–abr). Clima tropical seco del Caribe. Año 2024.</span></button></li><li><button type="button" class="ejemplo" aria-pressed="false"><span class="ejemplo__nombre">Bogotá (CO)</span><span class="ejemplo__desc">Sabana de Bogotá (2.600 m), cielos frecuentemente cubiertos. Clima andino de altiplano, frío y nublado. Año 2024.</span></button></li><li><button type="button" class="ejemplo" aria-pressed="false"><span class="ejemplo__nombre">Madrid (ES)</span><span class="ejemplo__desc">Latitud media del hemisferio norte: días largos en verano y cortos en invierno. Clima mediterráneo continental, estaciones marcadas. Año 2024.</span></button></li><li><button type="button" class="ejemplo" aria-pressed="true"><span class="ejemplo__nombre">Rionegro (Antioquia, CO)</span><span class="ejemplo__desc">Altiplano del Oriente antioqueño (2.100 m). Nubosidad frecuente; el mismo sitio de la AE4. Clima andino de montaña, régimen bimodal de lluvias. Año 2024.</span></button></li><li><button type="button" class="ejemplo" aria-pressed="false"><span class="ejemplo__nombre">Santiago (CL)</span><span class="ejemplo__desc">Hemisferio sur: el verano (más sol) cae en diciembre–febrero. Clima mediterráneo del hemisferio sur. Año 2024.</span></button></li></ul></div></fieldset></div><div class="tramo tramo--accion"><label class="interruptor"><input type="checkbox" style=""><span>Calcular también por fases del régimen bimodal<span class="interruptor__nota">Andes colombianos: dos temporadas secas y dos de lluvias.</span></span></label><button type="button" class="boton boton--primario">Calcular el factor</button><p class="campo__nota">Consulta ERA5 y NASA POWER en vivo; la primera vez tarda unos segundos.</p></div></div></section><div class="ancla"><section class="progreso" aria-labelledby="titulo-progreso"><div class="progreso__cabeza"><h2 id="titulo-progreso" class="seccion__titulo">Ejecución del pipeline</h2><p class="progreso__cuenta" aria-live="polite"><span class="cifra">11</span> de <span class="cifra">11</span> pasos</p></div><div class="progreso__regla" role="progressbar" aria-valuemin="0" aria-valuemax="11" aria-valuenow="11" aria-label="Pasos terminados"><div class="progreso__relleno" style="transform: scaleX(1);"></div></div><ol class="progreso__fases"><li class="fase"><h3 class="fase__nombre">Extraer</h3><p class="fase__que">traer los datos crudos de cada fuente</p><ol class="fase__pasos"><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">1</span><span class="paso__texto"><span class="paso__titulo">Extraer ERA5 (Open-Meteo, models=era5)</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">8.784 horas (caché local); celda ERA5 6.25, -75.50</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">2</span><span class="paso__texto"><span class="paso__titulo">Extraer NASA POWER (horario, comunidad RE)</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">8.832 horas en hora solar local (caché local)</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">3</span><span class="paso__texto"><span class="paso__titulo">Leer el sensor</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">526.594 registros por minuto — SIMULADO</span></span></li></ol></li><li class="fase"><h3 class="fase__nombre">Transformar</h3><p class="fase__que">limpiar, llevar a la misma hora y unir</p><ol class="fase__pasos"><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">4</span><span class="paso__texto"><span class="paso__titulo">Calidad del sensor</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">5.676 problemas detectados y tratados</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">5</span><span class="paso__texto"><span class="paso__titulo">Calidad de ERA5 y NASA</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">ERA5 0 vacíos; NASA 0 valores -999</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">6</span><span class="paso__texto"><span class="paso__titulo">Llevar todo a hora UTC (NASA y sensor)</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">NASA hora solar local +6 h → UTC; sensor minuto → hora (H = promedio de (H-1, H], ≥48 min)</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">7</span><span class="paso__texto"><span class="paso__titulo">Unir las tres fuentes por ts_utc</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">8.784 horas; 100.0 % sensor+ERA5, 100.0 % +NASA</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">8</span><span class="paso__texto"><span class="paso__titulo">Chequeo de desfase (correlación −8 a +8 h)</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">ERA5 vs NASA: máximo en +0 h, sensor vs ERA5: máximo en +0 h</span></span></li></ol></li><li class="fase"><h3 class="fase__nombre">Cargar</h3><p class="fase__que">guardar tablas listas para usar</p><ol class="fase__pasos"><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">9</span><span class="paso__texto"><span class="paso__titulo">Factores de corrección</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">ERA5 0.8983 (cotización) · NASA 0.9680 (chequeo cruzado)</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">10</span><span class="paso__texto"><span class="paso__titulo">Consistencia entre fuentes</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">ERA5 vs NASA: r = 0.9467, diferencia total 7.76 %</span></span></li><li class="paso" data-estado="listo"><svg class="marca marca--listo" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5"></rect><rect x="1.5" y="1.5" width="13" height="13" fill="currentColor"></rect><path d="M4.5 8.2l2.4 2.4 4.6-5" fill="none" stroke="var(--papel)" stroke-width="1.8"></path></svg><span class="paso__num cifra">11</span><span class="paso__texto"><span class="paso__titulo">Día típico y energía mensual</span><span class="visualmente-oculto">: listo</span><span class="paso__detalle">24 horas y 12 meses</span></span></li></ol></li></ol></section></div><section class="informe" aria-labelledby="titulo-informe"><header class="informe__cabeza"><div><h2 id="titulo-informe" class="seccion__titulo">Informe del sitio: Rionegro (Antioquia, CO)</h2><p class="informe__meta cifra">6,147° N · 75,377° O · año 2024 · sensor simulado, por minuto</p><p class="informe__celdas cifra">Celda ERA5 6,250° N · 75,500° O · 2 083 m <span aria-hidden="true">·</span> punto NASA 6,147° N · 75,377° O · 1 848 m</p></div><div class="informe__acciones"><a class="boton boton--secundario" href="/api/analisis/an-779022e17d/descargar" download="">Descargar resultados (ZIP)</a></div></header><div class="simulado" role="note" aria-label="Aviso: resultado simulado"><p class="simulado__sello">SIMULADO</p><div class="simulado__texto"><p class="simulado__frase">El sensor de este informe no existe: se fabricó a partir del clima de este punto. El factor sirve para comprobar que el método funciona; no es una medición del sitio ni sirve para cotizar.</p><p class="simulado__subtitulo">Supuestos de la simulación</p><ol class="simulado__supuestos"><li>El sensor es SIMULADO: no es una medición. Sirve para validar el método, no para cotizar.</li><li>Base del sensor = ERA5 de este mismo punto interpolado a minutos, conservando el promedio horario.</li><li>Factor verdadero por hora = 1.00 - 0.25·(1 - kt), recortado a [0.70, 1.00]; kt = GHI_ERA5 / GHI extraterrestre (supuesto: ERA5 sobrestima más con nubes).</li><li>Ruido de nubes multiplicativo de media 1 (σ = 0.12, suavizado a 7 min), semilla 2026.</li><li>Temperatura del módulo = aire ERA5 + 0.03 °C por W/m² + ruido (σ = 0.3 °C).</li><li>Defectos inyectados a propósito (huecos, NaN, picos, negativos nocturnos, duplicados) para que la etapa de calidad tenga trabajo; sus cantidades se conocen.</li></ol></div></div><div class="hallazgo"><div class="hallazgo__factor"><h3 class="hallazgo__titulo">Factor de corrección de ERA5</h3><p class="hallazgo__numero cifra" aria-label="Factor 0,8983">0,8983</p><p class="hallazgo__formula">energía real <span aria-hidden="true">=</span><span class="visualmente-oculto">igual a</span> ERA5 <span aria-hidden="true">×</span><span class="visualmente-oculto">por</span> <span class="cifra">0,8983</span></p><p class="hallazgo__frase">Sin factor, ERA5 sobrestima la energía del año en <strong class="cifra">11,3 %</strong>.</p><p class="nota">ERA5 es un reanálisis: un modelo global que estima la radiación de cada hora. El factor compara su energía con la del sensor en las mismas <span class="cifra">4 846</span> horas con sol.</p></div><div class="hallazgo__regla"><div class="regla"><svg width="714" height="146" role="img" aria-label="Energía anual en las horas del factor: ERA5 sin corregir 1 982 kWh/m², sensor 1 780 kWh/m². ERA5 se pasa 11,3 %."><defs><pattern id="rayado_r_4_" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="regla__raya"></line></pattern></defs><line x1="4" x2="696" y1="22" y2="22" class="regla__linea"></line><g><line x1="4" x2="4" y1="22" y2="13" class="regla__linea"></line><text x="4" y="9" text-anchor="start" class="regla__num">0</text><line x1="38.6" x2="38.6" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="73.2" x2="73.2" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="107.8" x2="107.8" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="142.4" x2="142.4" y1="22" y2="18" class="regla__linea regla__linea--fina"></line></g><g><line x1="177" x2="177" y1="22" y2="13" class="regla__linea"></line><text x="177" y="9" text-anchor="middle" class="regla__num">500</text><line x1="211.6" x2="211.6" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="246.2" x2="246.2" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="280.8" x2="280.8" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="315.40000000000003" x2="315.40000000000003" y1="22" y2="18" class="regla__linea regla__linea--fina"></line></g><g><line x1="350" x2="350" y1="22" y2="13" class="regla__linea"></line><text x="350" y="9" text-anchor="middle" class="regla__num">1 000</text><line x1="384.6" x2="384.6" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="419.2" x2="419.2" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="453.8" x2="453.8" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="488.4" x2="488.4" y1="22" y2="18" class="regla__linea regla__linea--fina"></line></g><g><line x1="523" x2="523" y1="22" y2="13" class="regla__linea"></line><text x="523" y="9" text-anchor="middle" class="regla__num">1 500</text><line x1="557.6" x2="557.6" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="592.1999999999999" x2="592.1999999999999" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="626.8000000000001" x2="626.8000000000001" y1="22" y2="18" class="regla__linea regla__linea--fina"></line><line x1="661.4" x2="661.4" y1="22" y2="18" class="regla__linea regla__linea--fina"></line></g><g><line x1="696" x2="696" y1="22" y2="13" class="regla__linea"></line><text x="696" y="9" text-anchor="middle" class="regla__num">2 000</text></g><text x="696" y="37" text-anchor="end" class="regla__unidad">kWh/m² en el año</text><text x="4" y="55" class="regla__rotulo">ERA5 sin corregir <tspan class="regla__valor">1 982</tspan></text><rect x="4.75" y="62.75" width="684.2201" height="18.5" class="serie-era5 contorno regla__barra"></rect><rect x="619.9665" y="62.75" width="69.0036" height="18.5" class="regla__exceso" fill="url(#rayado_r_4_)"></rect><text x="4" y="111" class="regla__rotulo">Sensor = ERA5 × factor <tspan class="regla__valor">1 780</tspan></text><rect x="4" y="118" width="615.9665" height="20" class="serie-sensor relleno regla__barra"></rect><line x1="619.9665" x2="619.9665" y1="60" y2="138" class="regla__corte"></line></svg></div><p class="nota">El tramo rayado es lo que ERA5 pone de más. Multiplicar por el factor lo recorta hasta la energía del sensor.</p></div></div><div class="validacion"><div><h3 class="bloque__titulo">¿El método recupera el factor verdadero?</h3><p class="validacion__cifras">Recuperado <strong class="cifra">0,8983</strong> · verdadero <strong class="cifra">0,8997</strong> · error absoluto <strong class="cifra">0,0015</strong></p><p class="nota">Como el sensor es simulado, se conoce el factor con el que se fabricó (el verdadero). Si el pipeline lo vuelve a encontrar, el cálculo está bien armado.</p></div><div class="escala-sim"><svg width="714" height="84" role="img" aria-label="Factor recuperado 0,8983, factor verdadero 0,8997."><line x1="14" x2="700" y1="40" y2="40" class="regla__linea"></line><g><line x1="14" x2="14" y1="40" y2="46" class="regla__linea"></line><text x="14" y="74" text-anchor="middle" class="regla__num">0,890</text></g><g><line x1="700" x2="700" y1="40" y2="46" class="regla__linea"></line><text x="700" y="74" text-anchor="middle" class="regla__num">0,900</text></g><line x1="679.4200000000022" x2="679.4200000000022" y1="24" y2="40" class="sim__verdadero"></line><text x="679.4200000000022" y="20" text-anchor="middle" class="anotacion">verdadero</text><circle cx="583.3799999999977" cy="40" r="5.5" class="sim__recuperado"></circle><text x="583.3799999999977" y="60" text-anchor="middle" class="anotacion anotacion--sensor">recuperado</text></svg></div></div><div class="bimodal"><h3 class="bloque__titulo">Factor por fase del régimen bimodal</h3><p class="nota">En los Andes colombianos el año tiene dos temporadas secas y dos de lluvias; cada una tiene su propio factor.</p><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Fase</th><th scope="col" class="num">Factor</th><th scope="col" class="num">ERA5 se pasa</th><th scope="col" class="num">Verdadero</th><th scope="col" class="num">Horas con sol</th></tr></thead><tbody><tr><th scope="row">Seca 1 (dic–feb)</th><td class="cifra num">0,9039</td><td class="cifra num">10,6 %</td><td class="cifra num">0,9045</td><td class="cifra num">1 136</td></tr><tr><th scope="row">Lluvias 1 (mar–may)</th><td class="cifra num">0,8881</td><td class="cifra num">12,6 %</td><td class="cifra num">0,8893</td><td class="cifra num">1 244</td></tr><tr><th scope="row">Seca 2 (jun–sep)</th><td class="cifra num">0,9081</td><td class="cifra num">10,1 %</td><td class="cifra num">0,9099</td><td class="cifra num">1 675</td></tr><tr><th scope="row">Lluvias 2 (oct–nov)</th><td class="cifra num">0,8798</td><td class="cifra num">13,7 %</td><td class="cifra num">0,8824</td><td class="cifra num">791</td></tr></tbody></table></div></div><div class="figuras"><figure class="figura" aria-labelledby="fig-factor-t"><h3 class="figura__titulo" id="fig-factor-t"><span class="figura__num">Fig. 1</span> Factor mensual</h3><p class="figura__lectura">Cada punto es el factor de un mes. Cuanto más abajo de la línea 1,00, más se pasa ERA5 ese mes.</p><ul class="leyenda" aria-label="Leyenda"><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-tinta"><circle cx="11" cy="6" r="4" class="relleno"></circle></svg>Factor del mes</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-tinta"><line x1="0" x2="22" y1="6" y2="6" class="trazo"></line></svg>Factor anual 0,8983</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-verdadero"><line x1="4" x2="18" y1="6" y2="6" class="trazo"></line></svg>Factor verdadero (simulación)</li></ul><div class="grafica"><svg width="612" height="250" role="img" aria-label="Factor mensual de 0,8685 a 0,9214; factor anual 0,8983. Use las flechas para leer cada mes." tabindex="0"><g class="eje"><g transform="translate(0 206.9476584022039)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0,85</text></g><g transform="translate(0 150.19834710743802)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0,90</text></g><g transform="translate(0 93.44903581267225)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0,95</text></g><g transform="translate(0 36.69972451790636)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">1,00</text></g></g><line x1="46" x2="596" y1="36.69972451790636" y2="36.69972451790636" class="referencia"></line><text x="596" y="30.69972451790636" text-anchor="end" class="anotacion">1,00 = ERA5 sin corregir</text><line x1="46" x2="596" y1="152.1278236914601" y2="152.1278236914601" class="referencia referencia--anual"></line><g class="tallo"><line x1="68.91666666666667" x2="68.91666666666667" y1="36.69972451790636" y2="125.90964187327826"></line><line x1="59.91666666666667" x2="77.91666666666667" y1="127.1581267217631" y2="127.1581267217631" class="tallo__verdadero"></line><circle cx="68.91666666666667" cy="125.90964187327826" r="4.5"></circle></g><g class="tallo"><line x1="114.75" x2="114.75" y1="36.69972451790636" y2="152.1278236914601"></line><line x1="105.75" x2="123.75" y1="149.4038567493114" y2="149.4038567493114" class="tallo__verdadero"></line><circle cx="114.75" cy="152.1278236914601" r="4.5"></circle></g><g class="tallo"><line x1="160.58333333333334" x2="160.58333333333334" y1="36.69972451790636" y2="151.56033057851238"></line><line x1="151.58333333333334" x2="169.58333333333334" y1="153.60330578512395" y2="153.60330578512395" class="tallo__verdadero"></line><circle cx="160.58333333333334" cy="151.56033057851238" r="4.5"></circle></g><g class="tallo"><line x1="206.41666666666669" x2="206.41666666666669" y1="36.69972451790636" y2="169.9471074380165"></line><line x1="197.41666666666669" x2="215.41666666666669" y1="166.20165289256198" y2="166.20165289256198" class="tallo__verdadero"></line><circle cx="206.41666666666669" cy="169.9471074380165" r="4.5"></circle></g><g class="tallo"><line x1="252.25" x2="252.25" y1="36.69972451790636" y2="171.76308539944907"></line><line x1="243.25" x2="261.25" y1="168.69862258953165" y2="168.69862258953165" class="tallo__verdadero"></line><circle cx="252.25" cy="171.76308539944907" r="4.5"></circle></g><g class="tallo"><line x1="298.08333333333337" x2="298.08333333333337" y1="36.69972451790636" y2="160.5267217630854"></line><line x1="289.08333333333337" x2="307.08333333333337" y1="161.32121212121217" y2="161.32121212121217" class="tallo__verdadero"></line><circle cx="298.08333333333337" cy="160.5267217630854" r="4.5"></circle></g><g class="tallo"><line x1="343.9166666666667" x2="343.9166666666667" y1="36.69972451790636" y2="135.78402203856757"></line><line x1="334.9166666666667" x2="352.9166666666667" y1="133.4005509641874" y2="133.4005509641874" class="tallo__verdadero"></line><circle cx="343.9166666666667" cy="135.78402203856757" r="4.5"></circle></g><g class="tallo"><line x1="389.75" x2="389.75" y1="36.69972451790636" y2="132.26556473829208"></line><line x1="380.75" x2="398.75" y1="132.94655647382922" y2="132.94655647382922" class="tallo__verdadero"></line><circle cx="389.75" cy="132.26556473829208" r="4.5"></circle></g><g class="tallo"><line x1="435.58333333333337" x2="435.58333333333337" y1="36.69972451790636" y2="140.09696969696967"></line><line x1="426.58333333333337" x2="444.58333333333337" y1="133.28705234159776" y2="133.28705234159776" class="tallo__verdadero"></line><circle cx="435.58333333333337" cy="140.09696969696967" r="4.5"></circle></g><g class="tallo"><line x1="481.4166666666667" x2="481.4166666666667" y1="36.69972451790636" y2="163.1371900826447"></line><line x1="472.4166666666667" x2="490.4166666666667" y1="160.86721763085407" y2="160.86721763085407" class="tallo__verdadero"></line><circle cx="481.4166666666667" cy="163.1371900826447" r="4.5"></circle></g><g class="tallo"><line x1="527.25" x2="527.25" y1="36.69972451790636" y2="185.95041322314046"></line><line x1="518.25" x2="536.25" y1="182.20495867768597" y2="182.20495867768597" class="tallo__verdadero"></line><circle cx="527.25" cy="185.95041322314046" r="4.5"></circle></g><g class="tallo"><line x1="573.0833333333334" x2="573.0833333333334" y1="36.69972451790636" y2="165.40716253443523"></line><line x1="564.0833333333334" x2="582.0833333333334" y1="164.49917355371906" y2="164.49917355371906" class="tallo__verdadero"></line><circle cx="573.0833333333334" cy="165.40716253443523" r="4.5"></circle></g><g class="eje"><text x="68.91666666666667" y="240" text-anchor="middle">ene</text><text x="114.75" y="240" text-anchor="middle">feb</text><text x="160.58333333333334" y="240" text-anchor="middle">mar</text><text x="206.41666666666669" y="240" text-anchor="middle">abr</text><text x="252.25" y="240" text-anchor="middle">may</text><text x="298.08333333333337" y="240" text-anchor="middle">jun</text><text x="343.9166666666667" y="240" text-anchor="middle">jul</text><text x="389.75" y="240" text-anchor="middle">ago</text><text x="435.58333333333337" y="240" text-anchor="middle">sep</text><text x="481.4166666666667" y="240" text-anchor="middle">oct</text><text x="527.25" y="240" text-anchor="middle">nov</text><text x="573.0833333333334" y="240" text-anchor="middle">dic</text></g></svg></div><details class="figura__tabla"><summary>Ver los datos en tabla</summary><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Mes</th><th scope="col">Factor</th><th scope="col">Verdadero</th><th scope="col">Horas con sol</th></tr></thead><tbody><tr><th scope="row">enero</th><td>0,9214</td><td>0,9203</td><td>389</td></tr><tr><th scope="row">febrero</th><td>0,8983</td><td>0,9007</td><td>376</td></tr><tr><th scope="row">marzo</th><td>0,8988</td><td>0,8970</td><td>398</td></tr><tr><th scope="row">abril</th><td>0,8826</td><td>0,8859</td><td>412</td></tr><tr><th scope="row">mayo</th><td>0,8810</td><td>0,8837</td><td>434</td></tr><tr><th scope="row">junio</th><td>0,8909</td><td>0,8902</td><td>420</td></tr><tr><th scope="row">julio</th><td>0,9127</td><td>0,9148</td><td>434</td></tr><tr><th scope="row">agosto</th><td>0,9158</td><td>0,9152</td><td>420</td></tr><tr><th scope="row">septiembre</th><td>0,9089</td><td>0,9149</td><td>401</td></tr><tr><th scope="row">octubre</th><td>0,8886</td><td>0,8906</td><td>403</td></tr><tr><th scope="row">noviembre</th><td>0,8685</td><td>0,8718</td><td>388</td></tr><tr><th scope="row">diciembre</th><td>0,8866</td><td>0,8874</td><td>371</td></tr></tbody></table></div></details></figure><figure class="figura" aria-labelledby="fig-energia-t"><h3 class="figura__titulo" id="fig-energia-t"><span class="figura__num">Fig. 2</span> Energía mensual</h3><p class="figura__lectura">La barra rellena de ERA5 × factor debe quedar casi a la altura de la del sensor.</p><ul class="leyenda" aria-label="Leyenda"><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-era5"><rect x="5.75" y="1.75" width="10.5" height="8.5" rx="1" class="contorno"></rect></svg>ERA5 sin corregir</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-era5"><rect x="5" y="1" width="12" height="10" rx="1" class="relleno"></rect></svg>ERA5 × factor</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-sensor"><rect x="5" y="1" width="12" height="10" rx="1" class="relleno"></rect></svg>Sensor</li></ul><div class="grafica"><svg width="612" height="250" role="img" aria-label="Energía mensual en kWh/m²: ERA5 sin corregir, ERA5 por el factor y sensor. Use las flechas para leer cada mes." tabindex="0"><g class="eje"><g transform="translate(0 220)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0</text></g><g transform="translate(0 117)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">100</text></g><g transform="translate(0 14)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">200</text></g></g><g><rect class="serie-era5 contorno barra-crece" x="51.79166666666667" y="23.2372" width="9.083333333333334" height="196.7628"></rect><rect class="serie-era5 relleno barra-crece" x="63.62500000000001" y="42.57220000000001" width="10.583333333333334" height="177.4278"></rect><rect class="serie-sensor relleno barra-crece" x="76.20833333333334" y="38.009299999999996" width="10.583333333333334" height="181.9907"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="97.62500000000001" y="54.80669999999998" width="9.083333333333334" height="165.19330000000002"></rect><rect class="serie-era5 relleno barra-crece" x="109.45833333333334" y="70.92810000000003" width="10.583333333333334" height="149.07189999999997"></rect><rect class="serie-sensor relleno barra-crece" x="122.04166666666669" y="70.92810000000003" width="10.583333333333334" height="149.07189999999997"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="143.45833333333334" y="38.172200000000004" width="9.083333333333334" height="181.8278"></rect><rect class="serie-era5 relleno barra-crece" x="155.29166666666669" y="55.9828" width="10.583333333333334" height="164.0172"></rect><rect class="serie-sensor relleno barra-crece" x="167.875" y="55.90040000000002" width="10.583333333333334" height="164.09959999999998"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="189.29166666666666" y="68.37180000000001" width="9.083333333333334" height="151.6282"></rect><rect class="serie-era5 relleno barra-crece" x="201.125" y="83.1233" width="10.583333333333334" height="136.8767"></rect><rect class="serie-sensor relleno barra-crece" x="213.70833333333331" y="85.5232" width="10.583333333333334" height="134.4768"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="235.125" y="67.30060000000003" width="9.083333333333334" height="152.69939999999997"></rect><rect class="serie-era5 relleno barra-crece" x="246.95833333333334" y="82.1551" width="10.583333333333334" height="137.8449"></rect><rect class="serie-sensor relleno barra-crece" x="259.5416666666667" y="84.8125" width="10.583333333333334" height="135.1875"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="280.95833333333337" y="65.40540000000001" width="9.083333333333334" height="154.59459999999999"></rect><rect class="serie-era5 relleno barra-crece" x="292.7916666666667" y="80.4556" width="10.583333333333334" height="139.5444"></rect><rect class="serie-sensor relleno barra-crece" x="305.37500000000006" y="81.58860000000001" width="10.583333333333334" height="138.4114"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="326.7916666666667" y="22.77369999999999" width="9.083333333333334" height="197.2263"></rect><rect class="serie-era5 relleno barra-crece" x="338.625" y="42.1602" width="10.583333333333334" height="177.8398"></rect><rect class="serie-sensor relleno barra-crece" x="351.20833333333337" y="39.29679999999999" width="10.583333333333334" height="180.7032"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="372.62500000000006" y="16.089" width="9.083333333333334" height="203.911"></rect><rect class="serie-era5 relleno barra-crece" x="384.45833333333337" y="36.14500000000001" width="10.583333333333334" height="183.855"></rect><rect class="serie-sensor relleno barra-crece" x="397.04166666666674" y="32.570899999999995" width="10.583333333333334" height="187.4291"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="418.45833333333337" y="22.753100000000018" width="9.083333333333334" height="197.24689999999998"></rect><rect class="serie-era5 relleno barra-crece" x="430.2916666666667" y="42.1396" width="10.583333333333334" height="177.8604"></rect><rect class="serie-sensor relleno barra-crece" x="442.87500000000006" y="40.038399999999996" width="10.583333333333334" height="179.9616"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="464.2916666666667" y="58.37049999999999" width="9.083333333333334" height="161.6295"></rect><rect class="serie-era5 relleno barra-crece" x="476.125" y="74.13139999999999" width="10.583333333333334" height="145.86860000000001"></rect><rect class="serie-sensor relleno barra-crece" x="488.70833333333337" y="75.7176" width="10.583333333333334" height="144.2824"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="510.12500000000006" y="94.1218" width="9.083333333333334" height="125.8782"></rect><rect class="serie-era5 relleno barra-crece" x="521.9583333333334" y="106.2468" width="10.583333333333334" height="113.7532"></rect><rect class="serie-sensor relleno barra-crece" x="534.5416666666667" y="110.0166" width="10.583333333333334" height="109.9834"></rect></g><g><rect class="serie-era5 contorno barra-crece" x="555.9583333333334" y="76.30279999999999" width="9.083333333333334" height="143.6972"></rect><rect class="serie-era5 relleno barra-crece" x="567.7916666666667" y="90.2509" width="10.583333333333334" height="129.7491"></rect><rect class="serie-sensor relleno barra-crece" x="580.375" y="91.9401" width="10.583333333333334" height="128.0599"></rect></g><line x1="46" x2="596" y1="220" y2="220" class="eje__base"></line><g class="eje"><text x="68.91666666666667" y="240" text-anchor="middle">ene</text><text x="114.75" y="240" text-anchor="middle">feb</text><text x="160.58333333333334" y="240" text-anchor="middle">mar</text><text x="206.41666666666669" y="240" text-anchor="middle">abr</text><text x="252.25" y="240" text-anchor="middle">may</text><text x="298.08333333333337" y="240" text-anchor="middle">jun</text><text x="343.9166666666667" y="240" text-anchor="middle">jul</text><text x="389.75" y="240" text-anchor="middle">ago</text><text x="435.58333333333337" y="240" text-anchor="middle">sep</text><text x="481.4166666666667" y="240" text-anchor="middle">oct</text><text x="527.25" y="240" text-anchor="middle">nov</text><text x="573.0833333333334" y="240" text-anchor="middle">dic</text></g></svg></div><details class="figura__tabla"><summary>Ver los datos en tabla</summary><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Mes</th><th scope="col">ERA5 sin corregir (kWh/m²)</th><th scope="col">ERA5 × factor (kWh/m²)</th><th scope="col">Sensor (kWh/m²)</th><th scope="col">NASA (kWh/m²)</th></tr></thead><tbody><tr><th scope="row">enero</th><td>191,8</td><td>172,3</td><td>176,7</td><td>174,8</td></tr><tr><th scope="row">febrero</th><td>161,1</td><td>144,7</td><td>144,7</td><td>150,7</td></tr><tr><th scope="row">marzo</th><td>177,3</td><td>159,2</td><td>159,3</td><td>147,2</td></tr><tr><th scope="row">abril</th><td>147,9</td><td>132,9</td><td>130,6</td><td>142,5</td></tr><tr><th scope="row">mayo</th><td>149,0</td><td>133,8</td><td>131,3</td><td>141,8</td></tr><tr><th scope="row">junio</th><td>150,8</td><td>135,5</td><td>134,4</td><td>145,9</td></tr><tr><th scope="row">julio</th><td>192,2</td><td>172,7</td><td>175,4</td><td>175,7</td></tr><tr><th scope="row">agosto</th><td>198,7</td><td>178,5</td><td>182,0</td><td>176,4</td></tr><tr><th scope="row">septiembre</th><td>192,2</td><td>172,7</td><td>174,7</td><td>165,8</td></tr><tr><th scope="row">octubre</th><td>157,7</td><td>141,6</td><td>140,1</td><td>160,4</td></tr><tr><th scope="row">noviembre</th><td>122,9</td><td>110,4</td><td>106,8</td><td>125,9</td></tr><tr><th scope="row">diciembre</th><td>140,2</td><td>126,0</td><td>124,3</td><td>132,3</td></tr></tbody></table></div></details></figure><figure class="figura" aria-labelledby="fig-dia-t"><h3 class="figura__titulo" id="fig-dia-t"><span class="figura__num">Fig. 3</span> Día típico</h3><p class="figura__lectura">Promedio de cada hora del día en el año, en hora solar aproximada (estimada con la longitud). Las tres curvas deben salir y ponerse con el sol a la vez.</p><ul class="leyenda" aria-label="Leyenda"><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-sensor"><line x1="0" x2="22" y1="6" y2="6" class="trazo"></line></svg>Sensor</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-era5"><line x1="0" x2="22" y1="6" y2="6" class="trazo"></line></svg>ERA5</li><li class="leyenda__item"><svg width="22" height="12" aria-hidden="true" class="serie-nasa"><line x1="0" x2="22" y1="6" y2="6" class="trazo trazo--discontinuo"></line></svg>NASA POWER</li></ul><div class="grafica"><svg width="612" height="250" role="img" aria-label="Día típico: irradiancia media por hora solar aproximada del sensor, ERA5 y NASA POWER, en W/m². Use las flechas para leer cada hora." tabindex="0"><g class="eje"><g transform="translate(0 220)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0</text></g><g transform="translate(0 151.33333333333334)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">250</text></g><g transform="translate(0 82.66666666666669)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">500</text></g><g transform="translate(0 14)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">750</text></g></g><path d="M46.0,220.0L69.9,220.0L93.8,220.0L117.7,220.0L141.7,220.0L165.6,220.0L189.5,220.0L213.4,207.8L237.3,168.3L261.2,120.3L285.1,72.2L309.0,37.3L333.0,16.4L356.9,18.8L380.8,43.3L404.7,78.7L428.6,122.5L452.5,167.1L476.4,205.5L500.3,219.9L524.3,220.0L548.2,220.0L572.1,220.0L596.0,220.0" class="serie-nasa trazo trazo--discontinuo"></path><path d="M46.0,220.0L69.9,220.0L93.8,220.0L117.7,220.0L141.7,220.0L165.6,220.0L189.5,219.9L213.4,205.9L237.3,163.0L261.2,107.0L285.1,56.8L309.0,21.4L333.0,2.4L356.9,6.7L380.8,31.1L404.7,70.0L428.6,117.6L452.5,165.1L476.4,204.0L500.3,219.8L524.3,220.0L548.2,220.0L572.1,220.0L596.0,220.0" class="serie-era5 trazo linea-dibuja" pathLength="1"></path><path d="M46.0,220.0L69.9,220.0L93.8,220.0L117.7,220.0L141.7,220.0L165.6,220.0L189.5,219.9L213.4,208.2L237.3,170.5L261.2,119.3L285.1,72.3L309.0,39.7L333.0,22.5L356.9,26.0L380.8,49.2L404.7,85.9L428.6,129.7L452.5,172.7L476.4,206.6L500.3,219.8L524.3,220.0L548.2,220.0L572.1,220.0L596.0,220.0" class="serie-sensor trazo linea-dibuja" pathLength="1"></path><line x1="46" x2="596" y1="220" y2="220" class="eje__base"></line><g class="eje"><text x="46" y="240" text-anchor="middle">0 h</text><text x="117.73913043478261" y="240" text-anchor="middle">3 h</text><text x="189.47826086956522" y="240" text-anchor="middle">6 h</text><text x="261.21739130434787" y="240" text-anchor="middle">9 h</text><text x="332.95652173913044" y="240" text-anchor="middle">12 h</text><text x="404.69565217391306" y="240" text-anchor="middle">15 h</text><text x="476.4347826086957" y="240" text-anchor="middle">18 h</text><text x="548.1739130434783" y="240" text-anchor="middle">21 h</text></g></svg></div><details class="figura__tabla"><summary>Ver los datos en tabla</summary><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Hora solar aprox.</th><th scope="col">Sensor (W/m²)</th><th scope="col">ERA5 (W/m²)</th><th scope="col">NASA (W/m²)</th></tr></thead><tbody><tr><th scope="row">0:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">1:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">2:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">3:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">4:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">5:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">6:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">7:00</th><td>43</td><td>51</td><td>45</td></tr><tr><th scope="row">8:00</th><td>180</td><td>208</td><td>188</td></tr><tr><th scope="row">9:00</th><td>367</td><td>412</td><td>363</td></tr><tr><th scope="row">10:00</th><td>538</td><td>594</td><td>538</td></tr><tr><th scope="row">11:00</th><td>656</td><td>723</td><td>665</td></tr><tr><th scope="row">12:00</th><td>719</td><td>792</td><td>741</td></tr><tr><th scope="row">13:00</th><td>706</td><td>777</td><td>733</td></tr><tr><th scope="row">14:00</th><td>622</td><td>688</td><td>643</td></tr><tr><th scope="row">15:00</th><td>488</td><td>546</td><td>515</td></tr><tr><th scope="row">16:00</th><td>329</td><td>373</td><td>355</td></tr><tr><th scope="row">17:00</th><td>172</td><td>200</td><td>193</td></tr><tr><th scope="row">18:00</th><td>49</td><td>58</td><td>53</td></tr><tr><th scope="row">19:00</th><td>1</td><td>1</td><td>0</td></tr><tr><th scope="row">20:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">21:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">22:00</th><td>0</td><td>0</td><td>0</td></tr><tr><th scope="row">23:00</th><td>0</td><td>0</td><td>0</td></tr></tbody></table></div></details></figure><figure class="figura" aria-labelledby="fig-desfase-t"><h3 class="figura__titulo" id="fig-desfase-t"><span class="figura__num">Fig. 4</span> Chequeo de desfase</h3><p class="figura__lectura">Se corre el sensor hora por hora y se mide cuánto se parece a ERA5 (correlación). El máximo cae en 0 h: los relojes están alineados. Entre ERA5 y NASA el máximo cae en 0 h.</p><div class="grafica"><svg width="612" height="220" role="img" aria-label="Correlación entre sensor y ERA5 al correr el sensor de -8 a 8 horas. Máximo en 0 h." tabindex="0"><g class="eje"><g transform="translate(0 190)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">-0,50</text></g><g transform="translate(0 131.33333333333334)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0,00</text></g><g transform="translate(0 72.66666666666667)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">0,50</text></g><g transform="translate(0 14)"><line x1="46" x2="596" class="eje__guia"></line><text x="38" dy="0.32em" text-anchor="end">1,00</text></g></g><g><rect x="52.147058823529406" y="131.33333333333334" width="20.058823529411764" height="49.655466666666655" class="barra-crece desfase "></rect></g><g><rect x="84.5" y="131.33333333333334" width="20.058823529411764" height="36.86613333333332" class="barra-crece desfase "></rect></g><g><rect x="116.85294117647058" y="131.33333333333334" width="20.058823529411764" height="17.86986666666664" class="barra-crece desfase "></rect></g><g><rect x="149.2058823529412" y="124.4224" width="20.058823529411764" height="6.910933333333347" class="barra-crece desfase "></rect></g><g><rect x="181.55882352941177" y="95.67573333333333" width="20.058823529411764" height="35.657600000000016" class="barra-crece desfase "></rect></g><g><rect x="213.91176470588235" y="66.26026666666668" width="20.058823529411764" height="65.07306666666666" class="barra-crece desfase "></rect></g><g><rect x="246.2647058823529" y="40.22399999999999" width="20.058823529411764" height="91.10933333333335" class="barra-crece desfase "></rect></g><g><rect x="278.61764705882354" y="21.89653333333331" width="20.058823529411764" height="109.43680000000003" class="barra-crece desfase "></rect></g><g><rect x="310.97058823529414" y="14.222933333333316" width="20.058823529411764" height="117.11040000000003" class="barra-crece desfase--max "></rect><text x="321" y="8.222933333333316" text-anchor="middle" class="anotacion anotacion--fuerte">0,998</text></g><g><rect x="343.3235294117647" y="22.095999999999975" width="20.058823529411764" height="109.23733333333337" class="barra-crece desfase "></rect></g><g><rect x="375.6764705882353" y="40.61119999999997" width="20.058823529411764" height="90.72213333333337" class="barra-crece desfase "></rect></g><g><rect x="408.0294117647059" y="66.75306666666665" width="20.058823529411764" height="64.58026666666669" class="barra-crece desfase "></rect></g><g><rect x="440.38235294117646" y="96.16853333333333" width="20.058823529411764" height="35.164800000000014" class="barra-crece desfase "></rect></g><g><rect x="472.7352941176471" y="124.89173333333335" width="20.058823529411764" height="6.441599999999994" class="barra-crece desfase "></rect></g><g><rect x="505.0882352941177" y="131.33333333333334" width="20.058823529411764" height="18.2688" class="barra-crece desfase "></rect></g><g><rect x="537.4411764705883" y="131.33333333333334" width="20.058823529411764" height="37.159466666666646" class="barra-crece desfase "></rect></g><g><rect x="569.7941176470588" y="131.33333333333334" width="20.058823529411764" height="49.83146666666667" class="barra-crece desfase "></rect></g><line x1="46" x2="596" y1="131.33333333333334" y2="131.33333333333334" class="eje__base"></line><g class="eje"><text x="62.17647058823529" y="210" text-anchor="middle">-8</text><text x="126.88235294117646" y="210" text-anchor="middle">-6</text><text x="191.58823529411765" y="210" text-anchor="middle">-4</text><text x="256.2941176470588" y="210" text-anchor="middle">-2</text><text x="321" y="210" text-anchor="middle">0</text><text x="385.70588235294116" y="210" text-anchor="middle">+2</text><text x="450.4117647058823" y="210" text-anchor="middle">+4</text><text x="515.1176470588235" y="210" text-anchor="middle">+6</text><text x="579.8235294117646" y="210" text-anchor="middle">+8</text></g></svg></div><details class="figura__tabla"><summary>Ver los datos en tabla</summary><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Corrimiento (h)</th><th scope="col">Correlación sensor–ERA5</th></tr></thead><tbody><tr><th scope="row">-8</th><td>-0,4232</td></tr><tr><th scope="row">-7</th><td>-0,3142</td></tr><tr><th scope="row">-6</th><td>-0,1523</td></tr><tr><th scope="row">-5</th><td>0,0589</td></tr><tr><th scope="row">-4</th><td>0,3039</td></tr><tr><th scope="row">-3</th><td>0,5546</td></tr><tr><th scope="row">-2</th><td>0,7765</td></tr><tr><th scope="row">-1</th><td>0,9327</td></tr><tr><th scope="row">0</th><td>0,9981</td></tr><tr><th scope="row">+1</th><td>0,9310</td></tr><tr><th scope="row">+2</th><td>0,7732</td></tr><tr><th scope="row">+3</th><td>0,5504</td></tr><tr><th scope="row">+4</th><td>0,2997</td></tr><tr><th scope="row">+5</th><td>0,0549</td></tr><tr><th scope="row">+6</th><td>-0,1557</td></tr><tr><th scope="row">+7</th><td>-0,3167</td></tr><tr><th scope="row">+8</th><td>-0,4247</td></tr></tbody></table></div></details></figure></div><div class="anexos"><section class="anexo" aria-labelledby="t-cruzado"><h3 id="t-cruzado" class="bloque__titulo">Chequeo cruzado: ERA5 contra NASA POWER</h3><dl class="datos"><div><dt>Parecido hora a hora</dt><dd class="cifra">0,947</dd><dd class="datos__nota">Correlación: 1 sería idéntico. Aquí se parecen mucho hora a hora.</dd></div><div><dt>Diferencia en energía del año</dt><dd class="cifra">+7,8 %</dd><dd class="datos__nota">ERA5 1 982 contra NASA 1 839 kWh/m², en 4 846 horas comunes.</dd></div></dl><p class="nota">Correlación 0.947: hora a hora ERA5 y NASA ven el mismo patrón de sol y nubes, así que la alineación de la hora (ts_utc) está bien. Diferencia de +7.8 % en el total: las fuentes gratuitas no coinciden en la cantidad de energía, por eso hace falta un sensor en el sitio. Que coincidan valida el proceso, no la exactitud de ninguna de las dos.</p><p class="nota">Con NASA en lugar de ERA5 el factor sería <span class="cifra">0,9680</span> (NASA se pasa <span class="cifra">3,3 %</span>). NASA solo se usa como chequeo, no para cotizar.</p></section><section class="anexo" aria-labelledby="t-integracion"><h3 id="t-integracion" class="bloque__titulo">Integración: cómo se unieron las fuentes</h3><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Unión</th><th scope="col" class="num">Horas unidas</th><th scope="col" class="num">Coinciden</th><th scope="col" class="num">Sin cruce</th></tr></thead><tbody><tr><th scope="row">sensor + ERA5<span class="tabla__sub">por ts_utc; todas las horas cruzaron</span></th><td class="cifra num">8 784</td><td class="cifra num">100,0 %</td><td class="cifra num">0</td></tr><tr><th scope="row">sensor+ERA5 + NASA<span class="tabla__sub">por ts_utc; todas las horas cruzaron</span></th><td class="cifra num">8 784</td><td class="cifra num">100,0 %</td><td class="cifra num">0</td></tr></tbody></table></div><p class="nota">NASA entrega la hora en hora solar local; se corrió <span class="cifra">+6</span> h para llevarla a UTC, y <span class="cifra">48</span> horas de NASA quedaron fuera del año. NASA POWER entrega la hora en hora solar local (time_standard=LST), por franjas de 15° de longitud: UTC-5. Se suma +6 h: +5 h a UTC y +1 h porque NASA etiqueta la hora por su inicio y Open-Meteo por su final. La regla round(lon/15) se confirma contra ERA5 probando ±1 h.</p></section><section class="anexo anexo--ancho" aria-labelledby="t-calidad"><h3 id="t-calidad" class="bloque__titulo">Calidad de los datos, antes y después de limpiar</h3><p class="nota">Cada fila es una regla de calidad. «Antes» y «después» cuentan los registros que la incumplen. «Inyectados» son los defectos que la simulación puso a propósito: la limpieza debe encontrarlos.</p><div class="tabla-envoltura"><table class="tabla tabla--calidad"><thead><tr><th scope="col">Fuente</th><th scope="col">Regla</th><th scope="col" class="num">Antes</th><th scope="col">Qué se hizo</th><th scope="col" class="num">Después</th><th scope="col" class="num">Inyectados</th></tr></thead><tbody><tr><td>sensor</td><th scope="row">Registros repetidos (mismo minuto)<span class="tabla__sub">ts_utc · unicidad</span></th><td class="cifra num">120<span class="tabla__sub">0,023 %</span></td><td class="tabla__explica">se conserva el último envío</td><td class="cifra num">0</td><td class="cifra num">120</td></tr><tr><td>sensor</td><th scope="row">Registros faltantes (el registrador no envió ese minuto)<span class="tabla__sub">ts_utc · oportunidad</span></th><td class="cifra num">566<span class="tabla__sub">0,107 %</span></td><td class="tabla__explica">se agrega el minuto vacío; huecos de hasta 5 min se interpolan; los cortes largos quedan vacíos (después = minutos sin irradiancia)</td><td class="cifra num">445</td><td class="cifra num">566</td></tr><tr><td>sensor</td><th scope="row">Irradiancia vacía<span class="tabla__sub">irr_sitio · completitud</span></th><td class="cifra num">300<span class="tabla__sub">0,057 %</span></td><td class="tabla__explica">se interpola si el hueco dura hasta 5 min</td><td class="cifra num">0</td><td class="cifra num">300</td></tr><tr><td>sensor</td><th scope="row">Temperatura del módulo vacía<span class="tabla__sub">t_modulo · completitud</span></th><td class="cifra num">200<span class="tabla__sub">0,038 %</span></td><td class="tabla__explica">se interpola si el hueco dura hasta 5 min</td><td class="cifra num">0</td><td class="cifra num">200</td></tr><tr><td>sensor</td><th scope="row">Valores imposibles (más de 1500 W/m²)<span class="tabla__sub">irr_sitio · validez</span></th><td class="cifra num">25<span class="tabla__sub">0,005 %</span></td><td class="tabla__explica">se vacían y luego se interpolan</td><td class="cifra num">0</td><td class="cifra num">25</td></tr><tr><td>sensor</td><th scope="row">Negativos pequeños de noche (-10 a 0 W/m²)<span class="tabla__sub">irr_sitio · validez</span></th><td class="cifra num">5 000<span class="tabla__sub">0,949 %</span></td><td class="tabla__explica">se llevan a 0 (offset del piranómetro)</td><td class="cifra num">0</td><td class="cifra num">5 000</td></tr><tr><td>sensor</td><th scope="row">Temperaturas imposibles (fuera de -40 a 85 °C)<span class="tabla__sub">t_modulo · validez</span></th><td class="cifra num">15<span class="tabla__sub">0,003 %</span></td><td class="tabla__explica">se vacían</td><td class="cifra num">0</td><td class="cifra num">15</td></tr><tr><td>sensor</td><th scope="row">Negativos grandes (menos de -10 W/m²)<span class="tabla__sub">irr_sitio · validez</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">se vacían</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>sensor</td><th scope="row">Luz de noche (sol 15° bajo el horizonte)<span class="tabla__sub">irr_sitio · consistencia</span></th><td class="cifra num">16<span class="tabla__sub">0,003 %</span></td><td class="tabla__explica">solo se reporta</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>ERA5</td><th scope="row">Registros repetidos (misma hora)<span class="tabla__sub">ts_utc · unicidad</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">se conserva el último</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>ERA5</td><th scope="row">Irradiancia vacía<span class="tabla__sub">irr_era5 · completitud</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">se deja vacía (sin imputar)</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>ERA5</td><th scope="row">Valores imposibles (fuera de 0 a 1500 W/m²)<span class="tabla__sub">irr_era5 · validez</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">se vacían</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>ERA5</td><th scope="row">Luz de noche (sol 15° bajo el horizonte)<span class="tabla__sub">irr_era5 · consistencia</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">solo se reporta</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>ERA5</td><th scope="row">Horas faltantes del año<span class="tabla__sub">ts_utc · oportunidad</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">consultar años ya publicados</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>NASA</td><th scope="row">Registros repetidos (misma hora)<span class="tabla__sub">ts_lst · unicidad</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">se conserva el último</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>NASA</td><th scope="row">Irradiancia sin dato (código -999)<span class="tabla__sub">irr_nasa · completitud</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">el -999 se cambia por vacío (sin imputar)</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>NASA</td><th scope="row">Temperatura sin dato (código -999)<span class="tabla__sub">t_aire_nasa · completitud</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">el -999 se cambia por vacío (sin imputar)</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>NASA</td><th scope="row">Luz de noche (sol 15° bajo el horizonte)<span class="tabla__sub">irr_nasa · consistencia</span></th><td class="cifra num">0<span class="tabla__sub">0,000 %</span></td><td class="tabla__explica">solo se reporta</td><td class="cifra num">0</td><td class="cifra num">—</td></tr><tr><td>NASA</td><th scope="row">Hora en hora solar local (UTC-5), no en UTC<span class="tabla__sub">ts_lst · consistencia</span></th><td class="cifra num">8 832<span class="tabla__sub">100,000 %</span></td><td class="tabla__explica">se corre +6 h a UTC (etiqueta al final de la hora)</td><td class="cifra num">0</td><td class="cifra num">—</td></tr></tbody></table></div></section><section class="anexo anexo--ancho" aria-labelledby="t-fuentes"><h3 id="t-fuentes" class="bloque__titulo">De dónde sale cada dato</h3><div class="tabla-envoltura"><table class="tabla"><thead><tr><th scope="col">Fuente</th><th scope="col">Origen</th><th scope="col" class="num">Filas</th><th scope="col">Llave de tiempo</th><th scope="col">Para qué sirve</th></tr></thead><tbody><tr><th scope="row">Sensor en sitio (SIMULADO)</th><td>simulador (supuesto declarado)</td><td class="cifra num">526 594</td><td>ts_utc (minuto agregado a hora)</td><td class="tabla__explica">irradiancia y temperatura del módulo en el sitio (numerador del factor)</td></tr><tr><th scope="row">Open-Meteo ERA5</th><td>API Open-Meteo, models=era5</td><td class="cifra num">8 784</td><td>ts_utc (ya viene en UTC)</td><td class="tabla__explica">irradiancia y temperatura del aire de la fuente gratuita (denominador del factor)</td></tr><tr><th scope="row">NASA POWER</th><td>API NASA POWER horaria, comunidad RE</td><td class="cifra num">8 832</td><td>ts_utc (hora solar local +6 h)</td><td class="tabla__explica">segunda fuente gratuita para el chequeo cruzado</td></tr></tbody></table></div></section></div></section></main><footer class="pie"><p>Fuentes: ERA5 (Copernicus / ECMWF) vía Open-Meteo con <code>models=era5</code>; NASA POWER, comunidad RE. Mapa © colaboradores de OpenStreetMap.</p><p>Proyecto académico de Adquisición e Integración de Datos, ITM. Un factor calculado con un sensor simulado no es una medición.</p></footer></div>
+    <script type="module" src="/src/main.tsx?t=1794823532835"></script>
+  
+
+</body></html>
